@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { ARTCC_NAMES, TRACON_NAMES, FACILITY_NAMES, CONTROL_FACILITY_NAMES } from './facilityNames'
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -106,34 +107,12 @@ const DISPLAYED_RESTRICTION_TYPES = new Set(['STOP', 'MIT', 'MINIT'])
 
 // ── Plain-English description ────────────────────────────────────────────────
 
-const ARTCC_NAMES = {
-    ZAB: 'Albuquerque Center', ZAN: 'Anchorage Center', ZAU: 'Chicago Center',
-    ZBW: 'Boston Center', ZDC: 'Washington Center', ZDV: 'Denver Center',
-    ZFW: 'Fort Worth Center', ZHU: 'Houston Center', ZID: 'Indianapolis Center',
-    ZJX: 'Jacksonville Center', ZKC: 'Kansas City Center', ZLA: 'Los Angeles Center',
-    ZLC: 'Salt Lake Center', ZMA: 'Miami Center', ZME: 'Memphis Center',
-    ZMP: 'Minneapolis Center', ZNY: 'New York Center', ZOA: 'Oakland Center',
-    ZOB: 'Cleveland Center', ZSE: 'Seattle Center', ZSU: 'San Juan Center',
-    ZTL: 'Atlanta Center',
-}
-
-const TRACON_NAMES = {
-    A80: 'Atlanta TRACON', A90: 'Boston TRACON', C90: 'Chicago TRACON',
-    D01: 'Denver TRACON', D10: 'Dallas-Fort Worth TRACON', D21: 'Detroit TRACON',
-    F11: 'Central Florida TRACON', I90: 'Indianapolis TRACON', L30: 'Las Vegas TRACON',
-    M98: 'Miami TRACON', N90: 'New York TRACON',
-    P50: 'Phoenix TRACON', S46: 'Seattle TRACON', S56: 'Sacramento TRACON',
-    T75: 'St. Louis TRACON',
-}
-
-const FACILITY_NAMES = { ...ARTCC_NAMES, ...TRACON_NAMES }
-
 function facilityCodes(facility) {
     return facility
         .replace(/(?:Â£|£)/g, '|')
     .split(/[|/]/)
     .map(segment => segment.trim())
-        .filter(Boolean)
+        .filter(segment => segment && !/^\d+$/.test(segment))
 }
 
 function formatFacility(facility, compact = false) {
@@ -161,20 +140,23 @@ function describe(tmi) {
     if (tmi.source === 'FAA_RESTRICTIONS') return tmi.plainLanguage || tmi.name
     const isGroundStop = ['STOP', 'GS'].includes(tmi.type)
     const from = tmi.providingFacility ? `from ${formatFacility(tmi.providingFacility, isGroundStop)}` : ''
-    const rawTarget = tmi.controlledElement || tmi.nasElement || tmi.aerodrome
+    const rawTarget = tmi.type === 'MIT' && !tmi.milesInTrail && !tmi.minutesInTrail && tmi.name
+        ? tmi.name.replace(/\s+\d+\s*(?:MIT|MINIT)\s*$/i, '').trim()
+        : tmi.controlledElement || tmi.nasElement || tmi.aerodrome
     const target = rawTarget.includes('/') ? formatRoute(rawTarget) : rawTarget.replace(/\*/g, '')
     const flow = tmi.restriction ? tmi.restriction.toLowerCase() : 'traffic'
+    const reason = tmi.reason ? ` ${summarizeTmiReason(tmi.reason)}.` : ''
 
     switch (tmi.type) {
         case 'STOP':
         case 'GS':
-            return `Ground stop on ${flow} to ${target} ${from}`
+            return `Ground stop on ${flow} to ${target} ${from}.${reason}`
         case 'GDP':
             return `Ground delay program into ${target} ${from}`
         case 'MINIT':
-            return `${tmi.minutesInTrail}-minute in-trail at ${target}${tmi.milesInTrail ? ` (${tmi.milesInTrail} nm)` : ''} — ${flow} ${from}`
+            return `${tmi.minutesInTrail}-minute in-trail at ${target}${tmi.milesInTrail ? ` (${tmi.milesInTrail} nm)` : ''} for ${flow} ${from}.${reason}`
         case 'MIT':
-            return `${tmi.milesInTrail}-mile in-trail at ${target} — ${flow} ${from}`
+            return `${tmi.milesInTrail}-mile in-trail at ${target} for ${flow} ${from}.${reason}`
         case 'APREQ':
             return `Approval required for ${flow} to ${target} ${from}`
         case 'EDCT':
@@ -184,6 +166,17 @@ function describe(tmi) {
         default:
             return `${tmi.type} on ${target} ${from}`
     }
+}
+
+function summarizeTmiReason(reason) {
+    const value = reason.replace(/\s+/g, ' ').trim()
+    const weatherMatch = value.match(/^WX\s*:\s*(.+)$/i) || value.match(/^WX\s+(.+)$/i)
+    if (weatherMatch) return `Due to ${weatherMatch[1].toLowerCase()}`
+    const volumeMatch = value.match(/^VOL\s*:\s*(.+)$/i) || value.match(/^VOL\s+(.+)$/i)
+    if (volumeMatch) return `Due to volume: ${volumeMatch[1].replace(/[-_]+/g, ' ').toLowerCase()}`
+    const reasonMatch = value.match(/^REASON\s+(.+)$/i)
+    if (reasonMatch) return `Due to ${reasonMatch[1].toLowerCase()}`
+    return `Due to ${value.replace(/[-_]+/g, ' ').toLowerCase()}`
 }
 
 const COMMON_DESCRIPTION_WORDS = new Set([
@@ -200,19 +193,23 @@ const AVIATION_TERM_LABELS = {
 }
 
 function locationLabel(code) {
-    return FACILITY_NAMES[code]
-    ? <span className="center-label"><strong>{FACILITY_NAMES[code]}</strong><small>{code}</small></span>
+    return CONTROL_FACILITY_NAMES[code]
+    ? <span className="center-label"><strong>{CONTROL_FACILITY_NAMES[code]}</strong><small>{code}</small></span>
         : code.replace(/^K/, '')
 }
 
 function highlightAviationTerms(text) {
     return text.split(/([A-Z][A-Z0-9]{1,7})/g).map((part, index) => {
         const isRoute = /^[A-Z]{1,3}\d{1,4}$/.test(part)
+        const centerName = CONTROL_FACILITY_NAMES[part]
         const isNamedFacility = FACILITY_NAMES[part]
         const isAirportOrFix = /^[A-Z]{3,5}$/.test(part)
             && !COMMON_DESCRIPTION_WORDS.has(part)
         const isIdentifier = isRoute || isAirportOrFix || isNamedFacility
         const label = AVIATION_TERM_LABELS[part]
+        if (centerName) {
+            return <strong className="center-term" key={`${part}-${index}`} title={centerName}>{part}</strong>
+        }
         return isIdentifier
             ? label
                 ? label
@@ -249,7 +246,7 @@ function TMIRow({ tmi, style }) {
             )}
 
             {/* Reason chip */}
-            {tmi.reason && (
+                {tmi.reason && !['STOP', 'GS', 'MIT', 'MINIT'].includes(tmi.type) && (
                 <span className="reason-chip">
                     {tmi.reason}
                 </span>

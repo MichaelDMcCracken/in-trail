@@ -328,10 +328,13 @@ function toPlainLanguage(description) {
         .replace(/\s+/g, ' ')
         .trim();
 
-    const stopMatch = sourceText.match(/^STOP\s+(.+?)\s+via\s+(\S+)(?:\s+WX:(.+))?$/i);
+    const stopMatch = sourceText.match(/^STOP\s+\S+\s+to\s+\S+\s+via\s+(\S+)(?:\s+SINGLE STREAM AS ONE)?(?:\s+WX:?\s*(.+))?$/i)
+        || sourceText.match(/^STOP\s+(.+?)\s+via\s+(\S+)(?:\s+WX:?\s*(.+))?$/i);
     if (stopMatch) {
-        const cause = stopMatch[3] ? ` because of ${stopMatch[3].toLowerCase()}` : '';
-        return `Routing via ${stopMatch[2]} is closed${cause}.`;
+        const route = stopMatch.length === 3 ? stopMatch[1] : stopMatch[2];
+        const weather = stopMatch.length === 3 ? stopMatch[2] : stopMatch[3];
+        const cause = weather ? ` because of ${weather.toLowerCase()}` : '';
+        return `Routing via ${route} is closed${cause}.`;
     }
 
     const scheduleMatch = sourceText.match(/^SCHEDULE DEPTS TO (\S+) INTO TBFM - DO NOT DELAY AIRBORNE FLTS$/i);
