@@ -489,7 +489,9 @@ export default function App() {
 
     useEffect(() => {
         function connect() {
-            const ws = new WebSocket(`ws://${window.location.hostname}:3001`)
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || `http://${window.location.hostname}:3001`
+            const wsUrl = backendUrl.replace(/^http/, 'ws')
+            const ws = new WebSocket(wsUrl)
             wsRef.current = ws
             ws.onopen = () => setConnected(true)
             ws.onclose = () => {
