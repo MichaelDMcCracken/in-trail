@@ -22,6 +22,22 @@ function fmtRelative(iso) {
     return hrs > 0 ? `+${hrs}h${m}m` : `+${mins}m`
 }
 
+const ALL_CLEAR_QUIPS = [
+    'not a single delay in sight',
+    'smooth air, empty inbox',
+    'zero traffic management drama',
+    'quiet skies, quieter radios',
+    'nothing to see here — literally',
+]
+
+// Resolve a searched code (e.g. "ATL" or "KATL") to a friendly airport name, if known.
+function lookupAirportName(query) {
+    if (!/^[A-Z]{3,4}$/.test(query)) return null
+    const icao = query.length === 4 ? query.slice(1) : query
+    const name = FACILITY_NAMES[icao]
+    return name ? name.replace(/ (Tower|TRACAB)$/, '') : null
+}
+
 function fmtRemaining(iso) {
     if (!iso) return null
     const diff = new Date(iso) - Date.now()
@@ -634,13 +650,19 @@ export default function App() {
                 {/* Empty state */}
                 {isEmpty && (
                     <div className="empty-state">
-                        <div className="empty-state__icon">{connected ? '◌' : '×'}</div>
+                        <div className="empty-state__icon">
+                            {!connected ? '×' : restrictions.length === 0 ? '◌' : hasSearch ? '✈️' : '◌'}
+                        </div>
                         <p>
                             {!connected
                                 ? 'Connecting to FAA SWIM…'
                                 : restrictions.length === 0
                                     ? 'Receiving data from FAA SWIM…'
-                                    : 'No active restrictions match your filter.'
+                                    : hasSearch && lookupAirportName(q)
+                                        ? <>All clear at <strong>{lookupAirportName(q)}</strong> — {ALL_CLEAR_QUIPS[q.charCodeAt(0) % ALL_CLEAR_QUIPS.length]}.</>
+                                        : hasSearch
+                                            ? `No active restrictions match "${q}".`
+                                            : 'No active restrictions match your filter.'
                             }
                         </p>
                     </div>
