@@ -155,7 +155,10 @@ button, input { font: inherit; }
 .center-label { display: grid; gap: 3px; min-width: 0; }
 .center-label strong { overflow: hidden; color: #e7edf2; font: 700 11px "Avenir Next", "Helvetica Neue", sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 .center-label small { color: #63c5bd; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
-.center-term { color: #e7b75b; cursor: help; font-weight: 700; text-decoration: underline dotted rgba(99, 197, 189, .75); text-underline-offset: 3px; }
+.center-term { position: relative; color: #e7b75b; cursor: help; font-weight: 700; text-decoration: underline dotted rgba(99, 197, 189, .75); text-underline-offset: 3px; }
+.center-term::after { position: absolute; z-index: 20; left: 50%; bottom: calc(100% + 8px); width: max-content; max-width: min(260px, 80vw); padding: 7px 9px; border: 1px solid #416d70; border-radius: 5px; background: #102027; box-shadow: 0 5px 18px rgba(0, 0, 0, .35); color: #e7edf2; content: attr(data-tooltip); font: 11px "Avenir Next", "Helvetica Neue", sans-serif; line-height: 1.25; opacity: 0; pointer-events: none; transform: translate(-50%, 4px); transition: opacity .15s, transform .15s; white-space: normal; }
+.center-term:hover::after, .center-term:focus::after { opacity: 1; transform: translate(-50%, 0); }
+.center-term:focus { outline: 2px solid #63c5bd; outline-offset: 3px; }
 .row-description { min-width: 0; flex: 1; color: #afc0c3; font-size: 13px; line-height: 1.4; }
 .row-description strong { color: #f3f6f5; }
 .row-description .aviation-term { color: #f3f6f5; font: 800 13px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; }

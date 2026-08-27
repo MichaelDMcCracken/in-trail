@@ -208,7 +208,14 @@ function highlightAviationTerms(text) {
         const isIdentifier = isRoute || isAirportOrFix || isNamedFacility
         const label = AVIATION_TERM_LABELS[part]
         if (centerName) {
-            return <strong className="center-term" key={`${part}-${index}`} title={centerName}>{part}</strong>
+            return <strong
+                className="center-term"
+                key={`${part}-${index}`}
+                title={centerName}
+                data-tooltip={centerName}
+                tabIndex="0"
+                aria-label={`${part}, ${centerName}`}
+            >{part}</strong>
         }
         return isIdentifier
             ? label
