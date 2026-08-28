@@ -270,7 +270,13 @@ function rerouteEndpointCodes(codes, fallback) {
         <span key={`${code}-${index}`}>
             {index > 0 && ' '}
             {CONTROL_FACILITY_NAMES[code]
-                ? <strong className="reroute-facility" title={CONTROL_FACILITY_NAMES[code]}>{code}</strong>
+                ? <strong
+                    className="reroute-facility"
+                    title={CONTROL_FACILITY_NAMES[code]}
+                    data-tooltip={CONTROL_FACILITY_NAMES[code]}
+                    tabIndex="0"
+                    aria-label={`${code}, ${CONTROL_FACILITY_NAMES[code]}`}
+                >{code}</strong>
                 : code}
         </span>
     ))
