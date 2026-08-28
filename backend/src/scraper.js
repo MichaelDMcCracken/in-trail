@@ -124,7 +124,7 @@ async function fetchCurrentReroutes() {
             const formNode = $(form);
             const advisoryNumber = textValue(formNode.find('input[name="advzy_num"]').val());
             const summary = formNode.find('td').first().text().replace(/\s+/g, ' ').trim();
-            const match = summary.match(/ATCSCC ADVZY (\d+) DCC (\d{2}\/\d{2}\/\d{4}) (ROUTE RQD|ROUTE RMD|FCA RQD) \/?FL/i);
+            const match = summary.match(/ATCSCC ADVZY (\d+) DCC (\d{2}\/\d{2}\/\d{4}) (ROUTE RQD|ROUTE RMD|FCA RQD)(?: \/?FL)?/i);
             const name = summary.match(/NAME:\s*(.+?)(?=\s+CONSTRAINED AREA:|\s+VALID:|$)/i)?.[1]?.trim();
             const constrainedArea = summary.match(/CONSTRAINED AREA:\s*(.+?)(?=\s+VALID:|$)/i)?.[1]?.trim();
             const validity = summary.match(/VALID:\s*(.+)$/i)?.[1]?.trim();

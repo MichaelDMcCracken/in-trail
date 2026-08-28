@@ -29,6 +29,22 @@ const ALL_CLEAR_QUIPS = [
     'all quiet on the airspace front',
 ]
 
+const AIRPORT_ARTCCS = {
+    KADW: ['ZDC'], KATL: ['ZTL'], KBOS: ['ZBW'], KBWI: ['ZDC'], KCAE: ['ZJX'],
+    KCHO: ['ZDC'], KCHS: ['ZJX'], KDCA: ['ZDC'], KDTW: ['ZOB'], KEWR: ['ZNY'],
+    KFLL: ['ZMA'], KFLO: ['ZJX'], KGAI: ['ZDC'], KGSO: ['ZTL'], KGRR: ['ZOB'],
+    KHEF: ['ZDC'], KHXD: ['ZJX'], KHPN: ['ZNY'], KIAD: ['ZDC'], KILM: ['ZJX'],
+    KJFK: ['ZNY'], KJZI: ['ZJX'], KLAS: ['ZLA'], KLGA: ['ZNY'], KMCO: ['ZJX'],
+    KMMU: ['ZNY'], KMYR: ['ZJX'], KORD: ['ZAU'], KORF: ['ZDC'], KRDU: ['ZDC'],
+    KRIC: ['ZDC'], KROA: ['ZDC'], KRSW: ['ZMA'], KSAV: ['ZJX'], KTEB: ['ZNY'],
+}
+
+function routeContainsSearchToken(route, token) {
+    const endpoints = [...(route.origins || []), ...(route.destinations || [])]
+    if (endpoints.some(code => code.includes(token))) return true
+    return AIRPORT_ARTCCS[token]?.some(center => route.origins?.includes(center)) || false
+}
+
 // Resolve a searched code (e.g. "ATL" or "KATL") to a friendly airport name, if known.
 function lookupAirportName(query) {
     if (!/^[A-Z]{3,4}$/.test(query)) return null
@@ -241,6 +257,18 @@ function highlightAviationTerms(text) {
     })
 }
 
+function rerouteEndpointCodes(codes, fallback) {
+    if (!codes?.length) return fallback
+    return codes.map((code, index) => (
+        <span key={`${code}-${index}`}>
+            {index > 0 && ' '}
+            {CONTROL_FACILITY_NAMES[code]
+                ? <strong className="reroute-facility" title={CONTROL_FACILITY_NAMES[code]}>{code}</strong>
+                : code}
+        </span>
+    ))
+}
+
 // ── TMI Row ──────────────────────────────────────────────────────────────────
 
 function TMIRow({ tmi, style }) {
@@ -367,37 +395,33 @@ function AirportOperations({ operations, autoExpand, query }) {
 
 function CurrentReroutes({ reroutes, autoExpand, query }) {
     const [collapsed, setCollapsed] = useState(true)
-    const [airportSearch, setAirportSearch] = useState('')
 
     useEffect(() => {
         setCollapsed(!autoExpand)
     }, [autoExpand])
 
-    const filtered = reroutes.filter(reroute => !query || [reroute.name, reroute.requirement, reroute.constrainedArea, reroute.rawText]
-        .filter(Boolean)
-        .some(value => value.toUpperCase().includes(query)))
-    const airportQuery = airportSearch.trim().toUpperCase()
-    const routeMatches = filtered.flatMap(reroute => (reroute.routePlans || []).filter(route => !airportQuery || [...route.origins, ...route.destinations].some(code => code.includes(airportQuery))).map(route => ({ reroute, route })))
-    const visibleReroutes = airportQuery ? filtered.filter(reroute => routeMatches.some(match => match.reroute.id === reroute.id)) : filtered
+    const tokens = query.trim().toUpperCase().split(/\s+/).filter(Boolean)
+    const routeMatches = reroutes.flatMap(reroute => (reroute.routePlans || [])
+        .filter(route => tokens.length === 0 || tokens.every(token => routeContainsSearchToken(route, token)))
+        .map(route => ({ reroute, route })))
+    const visibleReroutes = tokens.length > 0
+        ? reroutes.filter(reroute => routeMatches.some(match => match.reroute.id === reroute.id))
+        : reroutes
 
-    if (filtered.length === 0) return null
+    if (reroutes.length === 0) return null
 
     return (
         <section className="group-card current-reroutes-card">
             <button className="group-card__header current-reroutes-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
                 <h2 className="group-card__title"><span className="group-card__icon">↪</span><span>FAA mandated reroutes</span></h2>
-                <span className="current-reroutes-card__meta">{filtered.length} advisories · ATCSCC</span>
+                <span className="current-reroutes-card__meta">{reroutes.length} advisories · ATCSCC</span>
                 <span className="collapse-chevron" aria-hidden="true">{collapsed ? '+' : '−'}</span>
             </button>
             {!collapsed && <div className="current-reroutes-body">
-                <label className="current-reroutes-search">
-                    <span aria-hidden="true">⌕</span>
-                    <input aria-label="Find an airport in FAA reroutes" type="search" placeholder="Find an airport, e.g. KRDU" value={airportSearch} onChange={event => setAirportSearch(event.target.value)} />
-                </label>
-                {!airportQuery && <p className="current-reroutes-prompt">Enter an airport to see the complete published reroute.</p>}
-                {airportQuery && routeMatches.length === 0 && <p className="current-reroutes-prompt">No published route for {airportQuery} in the current advisories.</p>}
+                {tokens.length === 0 && <p className="current-reroutes-prompt">Search for an airport above to see its complete published reroute.</p>}
+                {tokens.length > 0 && routeMatches.length === 0 && <p className="current-reroutes-prompt">No published route matches {tokens.join(' + ')}.</p>}
                 {visibleReroutes.map(reroute => (
-                    <details className="current-reroute" key={reroute.id} open={Boolean(airportQuery)}>
+                    <details className="current-reroute" key={reroute.id} open={tokens.length > 0}>
                         <summary>
                             <span className="current-reroute__requirement">{reroute.requirement}</span>
                             <strong>{reroute.name}</strong>
@@ -421,19 +445,19 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
                                     <div key={key}><dt>{label}</dt><dd>{reroute.details[key]}</dd></div>
                                 ) : null)}
                             </dl>
-                            {airportQuery && routeMatches.filter(match => match.reroute.id === reroute.id).length > 0 && (
+                            {tokens.length > 0 && routeMatches.filter(match => match.reroute.id === reroute.id).length > 0 && (
                                 <div className="current-reroute__routes">
                                     <h3>Complete routes <span>{routeMatches.filter(match => match.reroute.id === reroute.id).length}</span></h3>
                                     {routeMatches.filter(match => match.reroute.id === reroute.id).map(({ route }, index) => (
                                         <div className="current-reroute__route" key={`${reroute.id}-route-${index}`}>
-                                            <span><b>From:</b> {route.origins?.join(' ') || 'All origins'}</span>
-                                            <span><b>To:</b> {route.destinations?.join(' ') || 'All destinations'}</span>
+                                            <span><b>From:</b> {rerouteEndpointCodes(route.origins, 'All origins')}</span>
+                                            <span><b>To:</b> {rerouteEndpointCodes(route.destinations, 'All destinations')}</span>
                                             <code>{route.route}</code>
                                         </div>
                                     ))}
                                 </div>
                             )}
-                            {!airportQuery && <pre>{reroute.rawText || 'Advisory detail unavailable.'}</pre>}
+                            {tokens.length === 0 && <pre>{reroute.rawText || 'Advisory detail unavailable.'}</pre>}
                             <a href={reroute.advisoryUrl} target="_blank" rel="noreferrer">Open FAA advisory</a>
                         </div>
                     </details>
@@ -629,17 +653,16 @@ export default function App() {
 
     // Filter by search
     const q = search.trim().toUpperCase()
+    const searchTokens = q.split(/\s+/).filter(Boolean)
     const filtered = useMemo(() => {
         const displayedRestrictions = restrictions.filter(t => DISPLAYED_RESTRICTION_TYPES.has(t.type))
-        if (!q) return displayedRestrictions
+        if (searchTokens.length === 0) return displayedRestrictions
         return displayedRestrictions.filter(t =>
-            t.aerodrome?.includes(q) ||
-            t.controlledElement?.toUpperCase().includes(q) ||
-            t.nasElement?.toUpperCase().includes(q) ||
-            t.name?.toUpperCase().includes(q) ||
-            t.providingFacility?.toUpperCase().includes(q)
+            searchTokens.every(token => [t.aerodrome, t.controlledElement, t.nasElement, t.name, t.providingFacility]
+                .filter(Boolean)
+                .some(value => value.toUpperCase().includes(token)))
         )
-    }, [restrictions, q])
+    }, [restrictions, searchTokens])
 
     const filteredClosures = useMemo(() => {
         if (!q) return runwayClosures

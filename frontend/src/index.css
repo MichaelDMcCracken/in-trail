@@ -123,11 +123,6 @@ button, input { font: inherit; }
 .current-reroutes-card__header .group-card__icon { color: #8ccfc8; }
 .current-reroutes-card__meta { margin-left: auto; color: #8ca1a7; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; text-transform: uppercase; }
 .current-reroutes-body { padding: 0 16px; background: rgba(9, 17, 22, .82); }
-.current-reroutes-search { display: flex; align-items: center; gap: 9px; margin: 14px 0 8px; padding: 0 10px; border: 1px solid #3b5960; border-radius: 6px; background: #102027; }
-.current-reroutes-search:focus-within { border-color: #e7b75b; box-shadow: 0 0 0 3px rgba(231, 183, 91, .1); }
-.current-reroutes-search > span { color: #e7b75b; font-size: 21px; transform: rotate(-20deg); }
-.current-reroutes-search input { width: 100%; min-width: 0; height: 36px; border: 0; outline: 0; color: #e7edf2; background: transparent; font-size: 12px; }
-.current-reroutes-search input::placeholder { color: #78909a; }
 .current-reroutes-prompt { margin: 0; padding: 8px 0 14px 22px; color: #78909a; font-size: 11px; }
 .current-reroute { border-bottom: 1px solid rgba(43, 64, 72, .6); }
 .current-reroute:last-child { border-bottom: 0; }
@@ -148,6 +143,7 @@ button, input { font: inherit; }
 .current-reroute__route { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5px 10px; align-items: baseline; padding: 7px 0; border-top: 1px solid rgba(43, 64, 72, .45); }
 .current-reroute__route span { color: #8ccfc8; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
 .current-reroute__route b { color: #e7b75b; font-weight: 800; }
+.reroute-facility { cursor: help; color: #e7edf2; text-decoration: underline dotted rgba(99, 197, 189, .8); text-underline-offset: 3px; }
 .current-reroute__route code { grid-column: 1 / -1; color: #e7edf2; font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 .current-reroute__detail pre { max-height: 360px; margin: 0 0 10px; overflow: auto; color: #afc0c3; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
 .current-reroute__detail a { color: #e7b75b; font-size: 11px; }
