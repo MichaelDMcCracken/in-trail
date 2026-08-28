@@ -445,7 +445,10 @@ async function fetchRestrictions() {
             const [requestingFacility, providingFacility, description, startText, endText] = columns;
             if (/^APREQ\b/i.test(description)) return;
             if (isOperatorMessage(description) || isExcludedOperationalMessage(description)) return;
-            const type = description.match(/^(STOP|GDP|GS|MINIT|MIT|EDCT|REROUTE|APREQ)\b/i)?.[1]?.toUpperCase() || 'FLOW';
+            const type = description.match(/^(STOP|GDP|GS|MINIT|MIT|EDCT|REROUTE|APREQ)\b/i)?.[1]?.toUpperCase()
+                || (description.match(/\b\d+\s*MINIT\b/i) ? 'MINIT' : null)
+                || (description.match(/\b\d+\s*MIT\b/i) ? 'MIT' : null)
+                || 'FLOW';
             const id = [requestingFacility, providingFacility, description, startText, endText].join('|');
 
             restrictions.push({
