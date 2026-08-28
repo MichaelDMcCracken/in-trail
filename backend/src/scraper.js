@@ -62,6 +62,27 @@ function cleanRoute(route) {
     return tokens.filter((token, index) => index === 0 || token !== tokens[index - 1]).join(' ');
 }
 
+function parseEndpointGroup(value) {
+    const normalized = (value || '').trim();
+    if (!normalized) return { codes: [], exclusions: [] };
+
+    const merged = normalized.replace(/\s*\)\s+\s*/g, ') ').replace(/\s+\(/g, ' (').replace(/\s+/g, ' ').trim();
+    const exclusionMatch = merged.match(/([A-Z][A-Z0-9]{2,4})\s*\(\s*(.*?)\s*\)/i);
+    if (exclusionMatch) {
+        const groupText = (exclusionMatch[2] || '').trim();
+        const isExclusionGroup = /^-?[A-Z0-9]{3,4}(?:\s+-?[A-Z0-9]{3,4})*$/.test(groupText);
+        if (isExclusionGroup) {
+            const base = exclusionMatch[1].toUpperCase();
+            const exclusions = groupText.split(/\s+/).map(code => code.replace(/^-+/, '').toUpperCase()).filter(Boolean);
+            const before = merged.slice(0, exclusionMatch.index).trim().split(/\s+/).filter(Boolean);
+            const after = merged.slice(exclusionMatch.index + exclusionMatch[0].length).trim().split(/\s+/).filter(Boolean);
+            return { codes: [...before, base, ...after], exclusions };
+        }
+    }
+
+    return { codes: merged.split(/\s+/).filter(Boolean).map(code => code.replace(/[()]/g, '').toUpperCase()), exclusions: [] };
+}
+
 function parseAdvisoryRoutes(lines) {
     const routes = [];
     let section = 'DIRECT';
@@ -90,9 +111,24 @@ function parseAdvisoryRoutes(lines) {
             const origin = line.slice(0, 20).trim();
             const destination = line.slice(20, 39).trim();
             const directRoute = line.slice(39).trim();
-            const hasRouteEndpoint = /\bK[A-Z0-9]{2,3}\b|\bZ[A-Z0-9]{2,3}\b/.test(`${origin} ${destination}`);
+            const endpointCandidate = [origin, destination].filter(Boolean).join(' ').trim();
+            const hasRouteEndpoint = /\bK[A-Z0-9]{2,3}\b|\bZ[A-Z0-9]{2,3}\b/.test(endpointCandidate);
             if (hasRouteEndpoint) {
-                previous = { section, origins: origin ? origin.split(/\s+/) : [], destinations: destination ? destination.split(/\s+/) : [], route: directRoute };
+                const hasParentheticalException = /[A-Z][A-Z0-9]{2,4}\s*\([^)]*\)/i.test(endpointCandidate);
+                const hasUnclosedParenthetical = /[A-Z][A-Z0-9]{2,4}\s*\([^)]*$/.test(endpointCandidate) || (origin.includes('(') && destination.startsWith('-')) || /^-[A-Z0-9]{3,4}\)?$/.test(destination);
+                const shouldMergeException = hasParentheticalException || hasUnclosedParenthetical;
+                const originValue = shouldMergeException ? endpointCandidate : origin;
+                const destinationValue = shouldMergeException ? '' : destination;
+                const parsedOrigins = parseEndpointGroup(originValue);
+                const parsedDestinations = parseEndpointGroup(destinationValue);
+                previous = {
+                    section,
+                    origins: parsedOrigins.codes,
+                    originExclusions: parsedOrigins.exclusions,
+                    destinations: parsedDestinations.codes,
+                    destinationExclusions: parsedDestinations.exclusions,
+                    route: directRoute,
+                };
                 routes.push(previous);
             } else if (previous) {
                 previous.route = `${previous.route} ${clean}`.trim();
@@ -517,6 +553,7 @@ function toPlainLanguage(description) {
     }
 
     return sourceText
+        .replace(/\b(\d+)\s*MINIT\b/gi, '$1-minute in-trail')
         .replace(/\b(\d+)MIT\b/gi, '$1-mile in-trail')
         .replace(/\b(\d+)\s+MIT\b/gi, '$1-mile in-trail')
         .replace(/\bDEPTS\b/gi, 'departures')

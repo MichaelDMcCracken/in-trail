@@ -50,6 +50,8 @@ const AIRPORT_ARTCCS = {
 
 function routeContainsSearchToken(route, token) {
     const endpoints = [...(route.origins || []), ...(route.destinations || [])]
+    const exclusions = [...(route.originExclusions || []), ...(route.destinationExclusions || [])]
+    if (exclusions.some(code => code.includes(token) || `K${code}` === token)) return false
     if (endpoints.some(code => code.includes(token))) return true
     return AIRPORT_ARTCCS[token]?.some(center => route.origins?.includes(center)) || false
 }
@@ -231,7 +233,7 @@ const COMMON_DESCRIPTION_WORDS = new Set([
     'A', 'ACTIVE', 'AIRBORNE', 'AN', 'AND', 'APPROVAL', 'ARRIVALS', 'AS', 'AT', 'BEHIND',
     'BECAUSE', 'BY', 'CLOSED', 'CLOSURE', 'CLEARANCE', 'DEPARTURES', 'EAST', 'EFFECT',
     'EXCEPT', 'FLOW', 'FOR', 'FROM', 'GROUND', 'IN', 'INTO', 'JET', 'JETS', 'MILE',
-    'LTFC', 'MILES', 'MINUTE', 'MINUTES', 'NORTH', 'OF', 'ON', 'ONE', 'PER', 'PROGRAM', 'REQUIRED',
+    'LTFC', 'MILES', 'MINUTE', 'MINUTES', 'NORM', 'NORTH', 'OF', 'ON', 'ONE', 'PER', 'PROGRAM', 'REQUIRED',
     'ROUTE', 'SCHEDULE', 'SCHEDULING', 'SOUTH', 'SPEED', 'STOP', 'THE', 'TO', 'TRAFFIC',
     'OTHER', 'RALT', 'UNTIL', 'VIA', 'WEST', 'WITH', 'VOLUME',
 ])
@@ -289,6 +291,12 @@ function rerouteEndpointCodes(codes, fallback) {
                 : code}
         </span>
     ))
+}
+
+function formatRerouteEndpoints(codes, exclusions, fallback) {
+    const endpoints = rerouteEndpointCodes(codes, fallback)
+    if (!exclusions?.length) return endpoints
+    return <>{endpoints} <small className="reroute-exceptions">(except {exclusions.join(', ')})</small></>
 }
 
 // ── TMI Row ──────────────────────────────────────────────────────────────────
@@ -434,13 +442,36 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
         ? reroutes.filter(reroute => routeMatches.some(match => match.reroute.id === reroute.id))
         : reroutes
 
+    const requirementCounts = reroutes.reduce((counts, reroute) => {
+        const requirement = reroute.requirement || ''
+        if (requirement === 'ROUTE RQD') counts.required += 1
+        else if (requirement === 'ROUTE RMD') counts.recommended += 1
+        else if (requirement === 'FCA RQD') counts.fca += 1
+        return counts
+    }, { required: 0, recommended: 0, fca: 0 })
+
+    const requirementSegments = [
+        requirementCounts.required > 0 ? { key: 'required', label: `${requirementCounts.required} required`, className: 'current-reroutes-card__meta-segment--required' } : null,
+        requirementCounts.recommended > 0 ? { key: 'recommended', label: `${requirementCounts.recommended} recommended`, className: 'current-reroutes-card__meta-segment--recommended' } : null,
+        requirementCounts.fca > 0 ? { key: 'fca', label: `${requirementCounts.fca} FCA`, className: 'current-reroutes-card__meta-segment--fca' } : null,
+    ].filter(Boolean)
+
+    const requirementSummary = requirementSegments.length > 0
+        ? requirementSegments.map((segment, index) => (
+            <span key={segment.key} className={`current-reroutes-card__meta-segment ${segment.className}`}>
+                {segment.label}
+                {index < requirementSegments.length - 1 && <span className="current-reroutes-card__meta-separator" aria-hidden="true" />}
+            </span>
+        ))
+        : <span className="current-reroutes-card__meta-segment current-reroutes-card__meta-segment--required">{reroutes.length} advisories</span>
+
     if (reroutes.length === 0) return null
 
     return (
         <section className="group-card current-reroutes-card">
             <button className="group-card__header current-reroutes-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
                 <h2 className="group-card__title"><span className="group-card__icon">↪</span><span>FAA Route Advisories</span></h2>
-                <span className="current-reroutes-card__meta">{reroutes.length} advisories · ATCSCC</span>
+                <span className="current-reroutes-card__meta current-reroutes-card__meta--summary">{requirementSummary}</span>
                 <span className="collapse-chevron" aria-hidden="true">{collapsed ? '+' : '−'}</span>
             </button>
             {!collapsed && <div className="current-reroutes-body">
@@ -478,8 +509,8 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
                                     <h3>Complete routes <span>{routeMatches.filter(match => match.reroute.id === reroute.id).length}</span></h3>
                                     {routeMatches.filter(match => match.reroute.id === reroute.id).map(({ route }, index) => (
                                         <div className="current-reroute__route" key={`${reroute.id}-route-${index}`}>
-                                            <span><b>From:</b> {rerouteEndpointCodes(route.origins, 'All origins')}</span>
-                                            <span><b>To:</b> {rerouteEndpointCodes(route.destinations, 'All destinations')}</span>
+                                            <span><b>From:</b> {formatRerouteEndpoints(route.origins, route.originExclusions, 'All origins')}</span>
+                                            <span><b>To:</b> {formatRerouteEndpoints(route.destinations, route.destinationExclusions, 'All destinations')}</span>
                                             <code>{route.route}</code>
                                         </div>
                                     ))}
@@ -521,13 +552,13 @@ function GroupCard({ group, tmis, autoExpand }) {
                 </h2>
                 <div className="group-card__counts">
                     {active.length > 0 && (
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded ${style.badge}`}>
-                            {active.length} active
+                        <span className="group-card__count group-card__count--active">
+                            <strong>{active.length}</strong> active
                         </span>
                     )}
                     {proposed.length > 0 && (
-                        <span className="text-xs font-bold px-2 py-0.5 rounded bg-yellow-400 text-black">
-                            {proposed.length} proposed
+                        <span className="group-card__count group-card__count--proposed">
+                            <strong>{proposed.length}</strong> proposed
                         </span>
                     )}
                 </div>
@@ -620,6 +651,38 @@ function OperationsPlan({ plan, autoExpand }) {
                 ))}
             </div>}
         </section>
+    )
+}
+
+function SiteFooter({ connected, lastUpdated }) {
+    return (
+        <footer className="site-footer">
+            <div className="site-footer__inner">
+                <div className="site-footer__brand">
+                    <div className="brand-mark brand-mark--small">✈</div>
+                    <div>
+                        <strong>In Trail</strong>
+                        <span>BETA · National airspace watch</span>
+                    </div>
+                </div>
+
+                <div className="site-footer__meta">
+                    <div className={`connection ${connected ? 'connection--live' : 'connection--offline'}`}>
+                        <span className="connection__dot" />
+                        <span>{connected ? 'LIVE' : 'OFFLINE'}</span>
+                    </div>
+                    <span className="site-footer__sync">Last sync {lastUpdated ? fmtTime(lastUpdated) : 'waiting for feed'}</span>
+                </div>
+
+                <div className="site-footer__links" aria-label="Footer links and data sources">
+                    <span>© 2026 In Trail</span>
+                    <span className="site-footer__separator">•</span>
+                    <a href="https://github.com/MichaelDMcCracken/in-trail" target="_blank" rel="noreferrer">GitHub</a>
+                    <span className="site-footer__separator">•</span>
+                    <a href="mailto:michael.mccracken172+intrail@gmail.com?subject=In%20Trail%20Beta%20Feedback">Submit feedback</a>
+                </div>
+            </div>
+        </footer>
     )
 }
 
@@ -834,6 +897,8 @@ export default function App() {
                     </section>
                 )}
             </main>
+
+            <SiteFooter connected={connected} lastUpdated={lastUpdated} />
         </div>
     )
 }
