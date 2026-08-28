@@ -45,6 +45,13 @@ function routeContainsSearchToken(route, token) {
     return AIRPORT_ARTCCS[token]?.some(center => route.origins?.includes(center)) || false
 }
 
+function rerouteTypeLabel(requirement) {
+    if (requirement === 'ROUTE RQD') return 'Required route'
+    if (requirement === 'ROUTE RMD') return 'Recommended route'
+    if (requirement === 'FCA RQD') return 'Flow constrained area'
+    return 'Route advisory'
+}
+
 // Resolve a searched code (e.g. "ATL" or "KATL") to a friendly airport name, if known.
 function lookupAirportName(query) {
     if (!/^[A-Z]{3,4}$/.test(query)) return null
@@ -413,7 +420,7 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
     return (
         <section className="group-card current-reroutes-card">
             <button className="group-card__header current-reroutes-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
-                <h2 className="group-card__title"><span className="group-card__icon">↪</span><span>FAA mandated reroutes</span></h2>
+                <h2 className="group-card__title"><span className="group-card__icon">↪</span><span>FAA route advisories</span></h2>
                 <span className="current-reroutes-card__meta">{reroutes.length} advisories · ATCSCC</span>
                 <span className="collapse-chevron" aria-hidden="true">{collapsed ? '+' : '−'}</span>
             </button>
@@ -423,7 +430,9 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
                 {visibleReroutes.map(reroute => (
                     <details className="current-reroute" key={reroute.id} open={tokens.length > 0}>
                         <summary>
-                            <span className="current-reroute__requirement">{reroute.requirement}</span>
+                            <span className={`current-reroute__requirement current-reroute__requirement--${reroute.requirement === 'FCA RQD' ? 'fca' : reroute.requirement === 'ROUTE RMD' ? 'recommended' : 'required'}`}>
+                                <strong>{rerouteTypeLabel(reroute.requirement)}</strong>
+                            </span>
                             <strong>{reroute.name}</strong>
                             <span className="current-reroute__area">{reroute.constrainedArea || 'Area not posted'}</span>
                         </summary>
