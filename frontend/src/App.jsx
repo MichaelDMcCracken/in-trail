@@ -23,11 +23,10 @@ function fmtRelative(iso) {
 }
 
 const ALL_CLEAR_QUIPS = [
-    'not a single delay in sight',
-    'smooth air, empty inbox',
-    'zero traffic management drama',
-    'quiet skies, quieter radios',
-    'nothing to see here — literally',
+    'clear skies ahead',
+    'smooth sailing out there',
+    'nothing but blue skies',
+    'all quiet on the airspace front',
 ]
 
 // Resolve a searched code (e.g. "ATL" or "KATL") to a friendly airport name, if known.
@@ -185,7 +184,8 @@ function describe(tmi) {
 }
 
 function summarizeTmiReason(reason) {
-    const value = reason.replace(/\s+/g, ' ').trim()
+    const value = reason.replace(/\s+/g, ' ').trim().replace(/^(OTHER\s+)+/i, '')
+    if (/^MILITARY OPS$/i.test(value)) return 'Due to military operations'
     const weatherMatch = value.match(/^WX\s*:\s*(.+)$/i) || value.match(/^WX\s+(.+)$/i)
     if (weatherMatch) return `Due to ${weatherMatch[1].toLowerCase()}`
     const volumeMatch = value.match(/^VOL\s*:\s*(.+)$/i) || value.match(/^VOL\s+(.+)$/i)
@@ -196,12 +196,12 @@ function summarizeTmiReason(reason) {
 }
 
 const COMMON_DESCRIPTION_WORDS = new Set([
-    'A', 'ACTIVE', 'AIRBORNE', 'AN', 'APPROVAL', 'ARRIVALS', 'AS', 'AT', 'BEHIND',
+    'A', 'ACTIVE', 'AIRBORNE', 'AN', 'AND', 'APPROVAL', 'ARRIVALS', 'AS', 'AT', 'BEHIND',
     'BECAUSE', 'BY', 'CLOSED', 'CLOSURE', 'CLEARANCE', 'DEPARTURES', 'EAST', 'EFFECT',
     'EXCEPT', 'FLOW', 'FOR', 'FROM', 'GROUND', 'IN', 'INTO', 'JET', 'JETS', 'MILE',
     'LTFC', 'MILES', 'MINUTE', 'MINUTES', 'NORTH', 'OF', 'ON', 'ONE', 'PER', 'PROGRAM', 'REQUIRED',
     'ROUTE', 'SCHEDULE', 'SCHEDULING', 'SOUTH', 'SPEED', 'STOP', 'THE', 'TO', 'TRAFFIC',
-    'OTHER', 'RALT', 'VIA', 'WEST', 'WITH', 'VOLUME',
+    'OTHER', 'RALT', 'UNTIL', 'VIA', 'WEST', 'WITH', 'VOLUME',
 ])
 
 const AVIATION_TERM_LABELS = {
@@ -216,7 +216,7 @@ function locationLabel(code) {
 
 function highlightAviationTerms(text) {
     return text.split(/([A-Z][A-Z0-9]{1,7})/g).map((part, index) => {
-        const isRoute = /^[A-Z]{1,3}\d{1,4}$/.test(part)
+        const isRoute = /^[A-Z]{1,6}\d{1,4}[A-Z]?$/.test(part)
         const centerName = CONTROL_FACILITY_NAMES[part]
         const isNamedFacility = FACILITY_NAMES[part]
         const isAirportOrFix = /^[A-Z]{3,5}$/.test(part)
@@ -284,9 +284,9 @@ function TimeBubble({ tmi }) {
             {tmi.untilFurtherNotice
                 ? <span className="time-bubble__ufn">UNTIL FURTHER NOTICE</span>
                 : <>
-                    {tmi.startTime && <span><small>START</small><strong>{fmtTime(tmi.startTime)}</strong></span>}
-                    {tmi.endTime && <span><small>END</small><strong>{fmtEndTime(tmi.endTime)}</strong></span>}
-                    {tmi.endTime && <em>{fmtRemaining(tmi.endTime)}</em>}
+                    {tmi.startTime && <span style={{ gridColumn: 1 }}><small>START</small><strong>{fmtTime(tmi.startTime)}</strong></span>}
+                    {tmi.endTime && <span style={{ gridColumn: 2 }}><small>END</small><strong>{fmtEndTime(tmi.endTime)}</strong></span>}
+                    {tmi.endTime && <em style={{ gridColumn: 3 }}>{fmtRemaining(tmi.endTime)}</em>}
                 </>
             }
         </span>
@@ -360,6 +360,84 @@ function AirportOperations({ operations, autoExpand, query }) {
                     </div>
                 )}
                 </div>
+            </div>}
+        </section>
+    )
+}
+
+function CurrentReroutes({ reroutes, autoExpand, query }) {
+    const [collapsed, setCollapsed] = useState(true)
+    const [airportSearch, setAirportSearch] = useState('')
+
+    useEffect(() => {
+        setCollapsed(!autoExpand)
+    }, [autoExpand])
+
+    const filtered = reroutes.filter(reroute => !query || [reroute.name, reroute.requirement, reroute.constrainedArea, reroute.rawText]
+        .filter(Boolean)
+        .some(value => value.toUpperCase().includes(query)))
+    const airportQuery = airportSearch.trim().toUpperCase()
+    const routeMatches = filtered.flatMap(reroute => (reroute.routePlans || []).filter(route => !airportQuery || [...route.origins, ...route.destinations].some(code => code.includes(airportQuery))).map(route => ({ reroute, route })))
+    const visibleReroutes = airportQuery ? filtered.filter(reroute => routeMatches.some(match => match.reroute.id === reroute.id)) : filtered
+
+    if (filtered.length === 0) return null
+
+    return (
+        <section className="group-card current-reroutes-card">
+            <button className="group-card__header current-reroutes-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
+                <h2 className="group-card__title"><span className="group-card__icon">↪</span><span>FAA mandated reroutes</span></h2>
+                <span className="current-reroutes-card__meta">{filtered.length} advisories · ATCSCC</span>
+                <span className="collapse-chevron" aria-hidden="true">{collapsed ? '+' : '−'}</span>
+            </button>
+            {!collapsed && <div className="current-reroutes-body">
+                <label className="current-reroutes-search">
+                    <span aria-hidden="true">⌕</span>
+                    <input aria-label="Find an airport in FAA reroutes" type="search" placeholder="Find an airport, e.g. KRDU" value={airportSearch} onChange={event => setAirportSearch(event.target.value)} />
+                </label>
+                {!airportQuery && <p className="current-reroutes-prompt">Enter an airport to see the complete published reroute.</p>}
+                {airportQuery && routeMatches.length === 0 && <p className="current-reroutes-prompt">No published route for {airportQuery} in the current advisories.</p>}
+                {visibleReroutes.map(reroute => (
+                    <details className="current-reroute" key={reroute.id} open={Boolean(airportQuery)}>
+                        <summary>
+                            <span className="current-reroute__requirement">{reroute.requirement}</span>
+                            <strong>{reroute.name}</strong>
+                            <span className="current-reroute__area">{reroute.constrainedArea || 'Area not posted'}</span>
+                        </summary>
+                        <div className="current-reroute__detail">
+                            <div className="current-reroute__meta">
+                                <span>ADVZY {reroute.advisoryNumber}</span>
+                                {reroute.validity && <span>{reroute.validity}</span>}
+                            </div>
+                            <dl className="current-reroute__fields">
+                                {[
+                                    ['includeTraffic', 'Traffic included'],
+                                    ['facilitiesIncluded', 'Facilities'],
+                                    ['flightStatus', 'Flight status'],
+                                    ['reason', 'Reason'],
+                                    ['probabilityOfExtension', 'Extension probability'],
+                                    ['remarks', 'Remarks'],
+                                    ['associatedRestrictions', 'Associated restrictions'],
+                                ].map(([key, label]) => reroute.details?.[key] ? (
+                                    <div key={key}><dt>{label}</dt><dd>{reroute.details[key]}</dd></div>
+                                ) : null)}
+                            </dl>
+                            {airportQuery && routeMatches.filter(match => match.reroute.id === reroute.id).length > 0 && (
+                                <div className="current-reroute__routes">
+                                    <h3>Complete routes <span>{routeMatches.filter(match => match.reroute.id === reroute.id).length}</span></h3>
+                                    {routeMatches.filter(match => match.reroute.id === reroute.id).map(({ route }, index) => (
+                                        <div className="current-reroute__route" key={`${reroute.id}-route-${index}`}>
+                                            <span><b>From:</b> {route.origins?.join(' ') || 'All origins'}</span>
+                                            <span><b>To:</b> {route.destinations?.join(' ') || 'All destinations'}</span>
+                                            <code>{route.route}</code>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {!airportQuery && <pre>{reroute.rawText || 'Advisory detail unavailable.'}</pre>}
+                            <a href={reroute.advisoryUrl} target="_blank" rel="noreferrer">Open FAA advisory</a>
+                        </div>
+                    </details>
+                ))}
             </div>}
         </section>
     )
@@ -500,6 +578,7 @@ export default function App() {
     const [lastUpdated, setLastUpdated] = useState(null)
     const [restrictions, setRestrictions] = useState([])
     const [runwayClosures, setRunwayClosures] = useState({})
+    const [reroutes, setReroutes] = useState([])
     const [opsPlan, setOpsPlan] = useState(null)
     const [airportOperations, setAirportOperations] = useState(null)
     const [closuresCollapsed, setClosuresCollapsed] = useState(true)
@@ -525,6 +604,7 @@ export default function App() {
                     setLastUpdated(data.lastUpdated)
                     setRestrictions(data.restrictions || [])
                     setRunwayClosures(data.runwayClosures || {})
+                    setReroutes(data.reroutes || [])
                     setOpsPlan(data.opsPlan || null)
                     setAirportOperations(data.airportOperations || null)
                 } else if (event === 'status') {
@@ -576,14 +656,18 @@ export default function App() {
         })).filter(g => g.tmis.length > 0)
     , [filtered])
 
-    const hasClosures = Object.keys(filteredClosures).some(k => filteredClosures[k]?.length > 0)
+    // Runway closures temporarily hidden from the UI.
+    const hasClosures = false
     const hasSearch = q.length > 0
 
     useEffect(() => {
         setClosuresCollapsed(!hasSearch)
     }, [hasSearch])
     const totalActive = restrictions.filter(t => t.status === 'ACTIVE').length
-    const isEmpty = groups.length === 0 && !hasClosures
+    const filteredReroutes = reroutes.filter(reroute => !q || [reroute.name, reroute.requirement, reroute.constrainedArea, reroute.rawText]
+        .filter(Boolean)
+        .some(value => value.toUpperCase().includes(q)))
+    const isEmpty = groups.length === 0 && filteredReroutes.length === 0 && !hasClosures
 
     return (
         <div className="app-shell">
@@ -621,13 +705,20 @@ export default function App() {
                     <div className="intro__signal"><span /> Monitoring live feed</div>
                 </section>
                 {/* Summary bar */}
-                {(restrictions.length > 0 || hasClosures) && (
+                {(restrictions.length > 0 || reroutes.length > 0 || hasClosures) && (
                     <div className="summary-grid">
                         <div className="stat-card">
                             <span className="stat-card__label">Active TMIs</span>
                             <strong>{totalActive}</strong>
                             <span className="stat-card__hint">traffic measures</span>
                         </div>
+                        {reroutes.length > 0 && (
+                            <div className="stat-card stat-card--reroute">
+                                <span className="stat-card__label">Mandated reroutes</span>
+                                <strong>{reroutes.length}</strong>
+                                <span className="stat-card__hint">current advisories</span>
+                            </div>
+                        )}
                         {hasClosures && (
                             <div className="stat-card stat-card--alert">
                                 <span className="stat-card__label">Runway closures</span>
@@ -658,11 +749,9 @@ export default function App() {
                                 ? 'Connecting to FAA SWIM…'
                                 : restrictions.length === 0
                                     ? 'Receiving data from FAA SWIM…'
-                                    : hasSearch && lookupAirportName(q)
-                                        ? <>All clear at <strong>{lookupAirportName(q)}</strong> — {ALL_CLEAR_QUIPS[q.charCodeAt(0) % ALL_CLEAR_QUIPS.length]}.</>
-                                        : hasSearch
-                                            ? `No active restrictions match "${q}".`
-                                            : 'No active restrictions match your filter.'
+                                    : hasSearch
+                                        ? <>No current delays or initiatives at <strong>{lookupAirportName(q) || q}</strong> — {ALL_CLEAR_QUIPS[q.charCodeAt(0) % ALL_CLEAR_QUIPS.length]} ☀️</>
+                                        : 'No active restrictions match your filter.'
                             }
                         </p>
                     </div>
@@ -672,6 +761,8 @@ export default function App() {
                 {groups.map(g => (
                     <GroupCard key={g.key} group={g} tmis={g.tmis} autoExpand={hasSearch} />
                 ))}
+
+                <CurrentReroutes reroutes={reroutes} autoExpand={hasSearch} query={q} />
 
                 {/* Runway closures */}
                 {hasClosures && (

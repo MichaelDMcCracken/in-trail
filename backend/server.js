@@ -3,8 +3,8 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
-const { connectToSWIM, getSnapshot, setScrapedRestrictions, setNasClosures, setOpsPlan, setAirportOperations, addListener, removeListener } = require('./src/swim');
-const { fetchRestrictions, fetchNasClosures, fetchAirportOperations, fetchOpsPlan } = require('./src/scraper');
+const { connectToSWIM, getSnapshot, setScrapedRestrictions, setCurrentReroutes, setNasClosures, setOpsPlan, setAirportOperations, addListener, removeListener } = require('./src/swim');
+const { fetchRestrictions, fetchCurrentReroutes, fetchNasClosures, fetchAirportOperations, fetchOpsPlan } = require('./src/scraper');
 
 const app = express();
 app.use(cors());
@@ -49,7 +49,7 @@ server.listen(PORT, () => {
 
 async function refreshRestrictions() {
     try {
-        const [restrictions, closures, airportOperations, plan] = await Promise.all([fetchRestrictions(), fetchNasClosures(), fetchAirportOperations(), fetchOpsPlan()]);
+        const [restrictions, reroutes, closures, airportOperations, plan] = await Promise.all([fetchRestrictions(), fetchCurrentReroutes(), fetchNasClosures(), fetchAirportOperations(), fetchOpsPlan()]);
         const opsClosures = Object.values(plan.airportImpacts || {}).flat().map(impact => ({
             id: impact.id,
             aerodrome: `K${impact.airport}`,
@@ -64,10 +64,11 @@ async function refreshRestrictions() {
             source: 'OPS_PLAN',
         }));
         setScrapedRestrictions(restrictions);
+        setCurrentReroutes(reroutes);
         setNasClosures([...closures, ...opsClosures]);
         setOpsPlan(plan);
         setAirportOperations(airportOperations);
-        console.log(`Loaded ${restrictions.length} FAA restrictions, ${closures.length} NAS closures, and ${plan.sections.length} ops-plan sections`);
+        console.log(`Loaded ${restrictions.length} FAA restrictions, ${reroutes.length} current reroutes, ${closures.length} NAS closures, and ${plan.sections.length} ops-plan sections`);
     } catch (error) {
         console.error('FAA restrictions refresh failed:', error.message);
     }

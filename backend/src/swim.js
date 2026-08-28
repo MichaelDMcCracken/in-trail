@@ -31,6 +31,7 @@ function isRelevant(tmi) {
 // In-memory store: id -> tmi object
 const allTMIs = new Map();
 let scrapedRestrictions = [];
+let currentReroutes = [];
 let opsPlan = null;
 let airportOperations = null;
 // Airport closures: aerodrome -> closure list
@@ -67,6 +68,7 @@ function getSnapshot() {
         connected: swimConnected,
         lastUpdated,
         restrictions: uniqueRestrictions,
+        reroutes: currentReroutes,
         runwayClosures: Object.fromEntries(new Map([...nasClosures, ...runwayClosures])),
         opsPlan,
         airportOperations,
@@ -95,6 +97,11 @@ function setAirportOperations(operations) {
 
 function setScrapedRestrictions(restrictions) {
     scrapedRestrictions = restrictions;
+    broadcast('update', getSnapshot());
+}
+
+function setCurrentReroutes(reroutes) {
+    currentReroutes = reroutes;
     broadcast('update', getSnapshot());
 }
 
@@ -280,4 +287,4 @@ function connectToSWIM() {
     session.connect();
 }
 
-module.exports = { connectToSWIM, getSnapshot, setScrapedRestrictions, setNasClosures, setOpsPlan, setAirportOperations, addListener, removeListener };
+module.exports = { connectToSWIM, getSnapshot, setScrapedRestrictions, setCurrentReroutes, setNasClosures, setOpsPlan, setAirportOperations, addListener, removeListener };

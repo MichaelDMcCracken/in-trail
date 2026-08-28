@@ -6,6 +6,164 @@ const cheerio = require('cheerio');
 // Cache data for 120 seconds to avoid spamming FAA
 const cache = new NodeCache({ stdTTL: 120 });
 const OPS_PLAN_FALLBACK_URL = process.env.OPS_PLAN_URL || 'https://www.fly.faa.gov/adv/adv_otherdis?advn=93&adv_date=08252026&facId=ATCSCC&title=ATCSCC%20ADVZY%20093%20DCC%2008%2F25%2F2026%20OPERATIONS%20PLAN&titleDate=08%2F25%2F2026';
+const CURRENT_REROUTES_URL = 'https://www.fly.faa.gov/current_reroutes/index';
+
+const ADVISORY_FIELDS = [
+    ['INCLUDE TRAFFIC', 'includeTraffic'],
+    ['FACILITIES INCLUDED', 'facilitiesIncluded'],
+    ['FLIGHT STATUS', 'flightStatus'],
+    ['VALID', 'valid'],
+    ['PROBABILITY OF EXTENSION', 'probabilityOfExtension'],
+    ['REMARKS', 'remarks'],
+    ['ASSOCIATED RESTRICTIONS', 'associatedRestrictions'],
+    ['MODIFICATIONS', 'modifications'],
+    ['REASON', 'reason'],
+];
+
+function parseAdvisoryDetail(rawText) {
+    const lines = rawText.split('\n').map(line => line.replace(/\s+$/, ''));
+    const details = {};
+    let currentField = null;
+    let routeStart = -1;
+
+    for (const line of lines) {
+        if (line.trim() === 'ROUTES:') {
+            routeStart = lines.indexOf(line);
+            break;
+        }
+        const field = ADVISORY_FIELDS.find(([label]) => line.startsWith(`${label}:`));
+        if (field) {
+            currentField = field[1];
+            details[currentField] = line.slice(field[0].length + 1).trim();
+        } else if (currentField && line.trim()) {
+            details[currentField] += ` ${line.trim()}`;
+        }
+    }
+
+    const routes = parseAdvisoryRoutes(routeStart < 0 ? [] : lines.slice(routeStart + 1));
+    return { details, routes, routePlans: buildRoutePlans(routes) };
+}
+
+function buildRoutePlans(routes) {
+    const directRoutes = routes.filter(route => route.section === 'DIRECT');
+    if (directRoutes.length > 0) return directRoutes.map(route => ({ ...route, route: cleanRoute(route.route) }));
+
+    const fromRoutes = routes.filter(route => route.section === 'FROM');
+    const toRoutes = routes.filter(route => route.section === 'TO');
+    return fromRoutes.flatMap(fromRoute => toRoutes.map(toRoute => ({
+        origins: fromRoute.origins,
+        destinations: toRoute.destinations,
+        route: cleanRoute(`${fromRoute.route} ${toRoute.route}`),
+    })));
+}
+
+function cleanRoute(route) {
+    const tokens = route.replace(/[<>]/g, '').trim().split(/\s+/).filter(Boolean);
+    return tokens.filter((token, index) => index === 0 || token !== tokens[index - 1]).join(' ');
+}
+
+function parseAdvisoryRoutes(lines) {
+    const routes = [];
+    let section = 'DIRECT';
+    let previous = null;
+    let inTable = false;
+
+    for (const line of lines) {
+        const clean = line.trim();
+        if (!clean || /^TMI ID:/.test(clean) || /^\d{6}-\d{6}$/.test(clean) || /^\d{2}\/\d{2}\//.test(clean)) continue;
+        if (clean === 'FROM:') { section = 'FROM'; inTable = false; previous = null; continue; }
+        if (clean === 'TO:') { section = 'TO'; inTable = false; previous = null; continue; }
+        if (/^(ORIG\s+DEST\s+ROUTE|ORIG\s+ROUTE|DEST\s+ROUTE|[- ]{4,})$/.test(clean)) {
+            if (/^-{4,}/.test(clean)) inTable = true;
+            continue;
+        }
+        if (section !== 'DIRECT' && !inTable) {
+            if (/^-{4,}/.test(clean)) inTable = true;
+            continue;
+        }
+
+        const originOrDestination = line.slice(0, 37).trim();
+        const route = line.slice(37).trim();
+        if (!route && !originOrDestination) continue;
+
+        if (section === 'DIRECT') {
+            const origin = line.slice(0, 20).trim();
+            const destination = line.slice(20, 39).trim();
+            const directRoute = line.slice(39).trim();
+            const hasRouteEndpoint = /\bK[A-Z0-9]{2,3}\b|\bZ[A-Z0-9]{2,3}\b/.test(`${origin} ${destination}`);
+            if (hasRouteEndpoint) {
+                previous = { section, origins: origin ? origin.split(/\s+/) : [], destinations: destination ? destination.split(/\s+/) : [], route: directRoute };
+                routes.push(previous);
+            } else if (previous) {
+                previous.route = `${previous.route} ${clean}`.trim();
+            }
+        } else if (originOrDestination) {
+            previous = section === 'FROM'
+                ? { section, origins: originOrDestination.split(/\s+/), destinations: [], route }
+                : { section, origins: [], destinations: originOrDestination.split(/\s+/), route };
+            routes.push(previous);
+        } else if (previous) {
+            previous.route = `${previous.route} ${clean}`.trim();
+        }
+    }
+
+    return routes.filter(route => route.route || route.origins.length || route.destinations.length);
+}
+
+async function fetchCurrentReroutes() {
+    const cacheKey = 'current-reroutes';
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) return cachedData;
+
+    try {
+        const response = await axios.get(CURRENT_REROUTES_URL);
+        const $ = cheerio.load(response.data);
+        const rows = [];
+
+        $('form[name^="SHOW_DETAILS"]').each((_, form) => {
+            const formNode = $(form);
+            const advisoryNumber = textValue(formNode.find('input[name="advzy_num"]').val());
+            const summary = formNode.find('td').first().text().replace(/\s+/g, ' ').trim();
+            const match = summary.match(/ATCSCC ADVZY (\d+) DCC (\d{2}\/\d{2}\/\d{4}) (ROUTE RQD|ROUTE RMD|FCA RQD) \/?FL/i);
+            const name = summary.match(/NAME:\s*(.+?)(?=\s+CONSTRAINED AREA:|\s+VALID:|$)/i)?.[1]?.trim();
+            const constrainedArea = summary.match(/CONSTRAINED AREA:\s*(.+?)(?=\s+VALID:|$)/i)?.[1]?.trim();
+            const validity = summary.match(/VALID:\s*(.+)$/i)?.[1]?.trim();
+            if (!advisoryNumber || !match || !name) return;
+            rows.push({
+                advisoryNumber,
+                advisoryDate: match[2],
+                requirement: match[3].toUpperCase(),
+                name,
+                constrainedArea: constrainedArea || null,
+                validity: validity || null,
+                advisoryUrl: `${CURRENT_REROUTES_URL.replace(/\/index$/, '')}/showAdvisoryHandler?advzy=${encodeURIComponent(advisoryNumber)}`,
+            });
+        });
+
+        const reroutes = await Promise.all(rows.map(async row => {
+            const detailResponse = await axios.get(row.advisoryUrl);
+            const detail$ = cheerio.load(detailResponse.data);
+            const rawText = detail$('pre').first().text().replace(/\r/g, '').trim();
+            const { details, routes, routePlans } = parseAdvisoryDetail(rawText);
+            return {
+                ...row,
+                rawText,
+                details,
+                routes,
+                routePlans,
+                source: 'FAA_CURRENT_REROUTES',
+                id: `reroute-${row.advisoryNumber}-${row.name}`,
+                fetchedAt: new Date().toISOString(),
+            };
+        }));
+
+        cache.set(cacheKey, reroutes);
+        return reroutes;
+    } catch (error) {
+        console.error('Failed to fetch Current Reroutes', error.message);
+        throw error;
+    }
+}
 
 async function fetchNasStatus() {
     const cacheKey = 'nas-status';
@@ -371,6 +529,7 @@ function parseFaaTime(value) {
 }
 
 module.exports = {
+    fetchCurrentReroutes,
     fetchNasStatus,
     fetchNasClosures,
     fetchAirportOperations,
