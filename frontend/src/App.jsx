@@ -219,10 +219,12 @@ function describe(tmi) {
 
 function summarizeTmiReason(reason) {
     const value = reason.replace(/\s+/g, ' ').trim().replace(/^(OTHER\s+)+/i, '')
+    if (/\bSTAFFING\b/i.test(value)) return 'Due to staffing'
     if (/^MILITARY OPS$/i.test(value)) return 'Due to military operations'
     const weatherMatch = value.match(/^WX\s*:\s*(.+)$/i) || value.match(/^WX\s+(.+)$/i)
     if (weatherMatch) return `Due to ${weatherMatch[1].toLowerCase()}`
     const volumeMatch = value.match(/^VOL\s*:\s*(.+)$/i) || value.match(/^VOL\s+(.+)$/i)
+    if (volumeMatch && /^VOLUME$/i.test(volumeMatch[1].trim())) return 'Due to volume'
     if (volumeMatch) return `Due to volume: ${volumeMatch[1].replace(/[-_]+/g, ' ').toLowerCase()}`
     const reasonMatch = value.match(/^REASON\s+(.+)$/i)
     if (reasonMatch) return `Due to ${reasonMatch[1].toLowerCase()}`
@@ -249,14 +251,35 @@ function locationLabel(code) {
 }
 
 function highlightAviationTerms(text) {
-    return text.split(/([A-Z][A-Z0-9]{1,7})/g).map((part, index) => {
-        const isRoute = /^[A-Z]{1,6}\d{1,4}[A-Z]?$/.test(part)
-        const centerName = CONTROL_FACILITY_NAMES[part]
-        const isNamedFacility = FACILITY_NAMES[part]
-        const isAirportOrFix = /^[A-Z]{3,5}$/.test(part)
-            && !COMMON_DESCRIPTION_WORDS.has(part)
+    const displayText = text
+        .replace(/\bRALT\b\s*/gi, '')
+        .replace(/\bALT:\s*A(?:OA|OB)(?:\/A(?:OA|OB))?\s*(?:FL)?\d{2,3}\b\s*/gi, '')
+        .replace(/\bRWY:\s*DISABLED AIRCRAFT\b/gi, 'a disabled aircraft on the runway')
+        .replace(/\bWX:\s*([A-Z])?/gi, (_, firstLetter) => firstLetter ? `Due to ${firstLetter.toLowerCase()}` : 'Due to ')
+        .replace(/^STOP\s+(.+?)\s+via\s+(\S+)\s+except\s+(.+?)\s+(?:OTHER:\s+\S+\s+)?STAFFING\.?$/i, (_, facilities, route, exceptions) => {
+            const cleanFacilities = facilities.replace(/\s*,\s*/g, ', ')
+            const cleanExceptions = exceptions.replace(/\s*\/\s*/g, ', ').replace(/,\s*$/, '').trim()
+            const routeLabel = /^ARS$/i.test(route) ? 'the ARs' : route
+            return `Routing from ${cleanFacilities} via ${routeLabel} closed, except ${cleanExceptions}, due to staffing.`
+        })
+        .replace(/^STOP\s+(.+?)\s+via\s+(\S+)(?:\s+(?:WX:?\s*|due to\s+)(.+))?\.?$/i, (_, facilities, route, weather) => {
+            const cleanFacilities = facilities.replace(/\s*,\s*/g, ', ')
+            const cleanWeather = weather?.replace(/[.]+$/, '').trim()
+            const routeLabel = /^ARS$/i.test(route) ? 'the ARs' : route
+            return `Routing from ${cleanFacilities} via ${routeLabel} closed${cleanWeather ? ` because of ${cleanWeather.toLowerCase()}` : ''}.`
+        })
+        .replace(/\s+/g, ' ')
+        .trim()
+
+    return displayText.split(/([A-Z][A-Z0-9]{1,7}(?:s)?)/g).map((part, index) => {
+        const aviationPart = part === 'ARs' ? 'ARS' : part
+        const isRoute = /^[A-Z]{1,6}\d{1,4}[A-Z]?$/.test(aviationPart)
+        const centerName = CONTROL_FACILITY_NAMES[aviationPart]
+        const isNamedFacility = FACILITY_NAMES[aviationPart]
+        const isAirportOrFix = /^[A-Z]{3,5}$/.test(aviationPart)
+            && !COMMON_DESCRIPTION_WORDS.has(aviationPart)
         const isIdentifier = isRoute || isAirportOrFix || isNamedFacility
-        const label = AVIATION_TERM_LABELS[part]
+        const label = AVIATION_TERM_LABELS[aviationPart]
         if (centerName) {
             return <strong
                 className="center-term"
@@ -354,10 +377,13 @@ function TimeBubble({ tmi }) {
 function summarizeDelayReason(reason) {
     const value = (reason || '').trim()
     if (!value) return 'reason not posted'
+    if (/\bSTAFFING\b/i.test(value)) return 'Due to staffing'
     if (/^TM Initiatives:(?:SWAP|MIT):WX$/i.test(value)) return 'Due to weather'
     const weatherMatch = value.match(/^WX:(.+)$/i)
     if (weatherMatch) return `Due to ${weatherMatch[1].trim().toLowerCase()}`
+    if (/^RWY:\s*DISABLED AIRCRAFT$/i.test(value)) return 'Due to a disabled aircraft on the runway'
     if (/^RWY:CONSTRUCTION$/i.test(value)) return 'Due to runway construction'
+    if (/^VOL:\s*VOLUME$/i.test(value)) return 'Due to volume'
     return `Due to ${value.replace(/^TM Initiatives:/i, '').trim().toLowerCase()}`
 }
 
@@ -369,7 +395,11 @@ function AirportOperations({ operations, autoExpand, query }) {
     }, [autoExpand])
 
     if (!operations) return null
-    const matchesAirport = item => !query || item.airport.includes(query) || item.aerodrome.includes(query)
+    const airportTokens = query.replace(/,/g, ' ').trim().split(/\s+/).filter(Boolean)
+    const matchesAirport = item => airportTokens.length === 0 || airportTokens.some(token => {
+        const iataCode = token.length === 4 && /^[KC]/.test(token) ? token.slice(1) : token
+        return item.airport.includes(token) || item.airport.includes(iataCode) || item.aerodrome.includes(token)
+    })
     const groundStops = operations.groundStops.filter(matchesAirport)
     const groundDelayPrograms = operations.groundDelayPrograms.filter(matchesAirport)
     const departureDelays = operations.departureDelays.filter(matchesAirport)
@@ -434,9 +464,9 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
         setCollapsed(!autoExpand)
     }, [autoExpand])
 
-    const tokens = query.trim().toUpperCase().split(/\s+/).filter(Boolean)
+    const tokens = query.replace(/,/g, ' ').trim().toUpperCase().split(/\s+/).filter(Boolean)
     const routeMatches = reroutes.flatMap(reroute => (reroute.routePlans || [])
-        .filter(route => tokens.length === 0 || tokens.every(token => routeContainsSearchToken(route, token)))
+        .filter(route => tokens.length === 0 || tokens.some(token => routeContainsSearchToken(route, token)))
         .map(route => ({ reroute, route })))
     const visibleReroutes = tokens.length > 0
         ? reroutes.filter(reroute => routeMatches.some(match => match.reroute.id === reroute.id))
@@ -451,19 +481,19 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
     }, { required: 0, recommended: 0, fca: 0 })
 
     const requirementSegments = [
-        requirementCounts.required > 0 ? { key: 'required', label: `${requirementCounts.required} required`, className: 'current-reroutes-card__meta-segment--required' } : null,
-        requirementCounts.recommended > 0 ? { key: 'recommended', label: `${requirementCounts.recommended} recommended`, className: 'current-reroutes-card__meta-segment--recommended' } : null,
-        requirementCounts.fca > 0 ? { key: 'fca', label: `${requirementCounts.fca} FCA`, className: 'current-reroutes-card__meta-segment--fca' } : null,
+        requirementCounts.required > 0 ? { key: 'required', count: requirementCounts.required, label: 'required', className: 'current-reroutes-card__meta-segment--required' } : null,
+        requirementCounts.recommended > 0 ? { key: 'recommended', count: requirementCounts.recommended, label: 'recommended', className: 'current-reroutes-card__meta-segment--recommended' } : null,
+        requirementCounts.fca > 0 ? { key: 'fca', count: requirementCounts.fca, label: 'FCA', className: 'current-reroutes-card__meta-segment--fca' } : null,
     ].filter(Boolean)
 
     const requirementSummary = requirementSegments.length > 0
         ? requirementSegments.map((segment, index) => (
             <span key={segment.key} className={`current-reroutes-card__meta-segment ${segment.className}`}>
-                {segment.label}
+                <strong>{segment.count}</strong> {segment.label}
                 {index < requirementSegments.length - 1 && <span className="current-reroutes-card__meta-separator" aria-hidden="true" />}
             </span>
         ))
-        : <span className="current-reroutes-card__meta-segment current-reroutes-card__meta-segment--required">{reroutes.length} advisories</span>
+        : <span className="current-reroutes-card__meta-segment current-reroutes-card__meta-segment--required"><strong>{reroutes.length}</strong> advisories</span>
 
     if (reroutes.length === 0) return null
 
@@ -555,6 +585,9 @@ function GroupCard({ group, tmis, autoExpand }) {
                         <span className="group-card__count group-card__count--active">
                             <strong>{active.length}</strong> active
                         </span>
+                    )}
+                    {active.length > 0 && proposed.length > 0 && (
+                        <span className="group-card__separator" aria-hidden="true">·</span>
                     )}
                     {proposed.length > 0 && (
                         <span className="group-card__count group-card__count--proposed">
@@ -654,24 +687,15 @@ function OperationsPlan({ plan, autoExpand }) {
     )
 }
 
-function SiteFooter({ connected, lastUpdated }) {
+function SiteFooter({ connected }) {
     return (
         <footer className="site-footer">
             <div className="site-footer__inner">
-                <div className="site-footer__brand">
-                    <div className="brand-mark brand-mark--small">✈</div>
-                    <div>
-                        <strong>In Trail</strong>
-                        <span>BETA · National airspace watch</span>
-                    </div>
-                </div>
-
                 <div className="site-footer__meta">
                     <div className={`connection ${connected ? 'connection--live' : 'connection--offline'}`}>
                         <span className="connection__dot" />
                         <span>{connected ? 'LIVE' : 'OFFLINE'}</span>
                     </div>
-                    <span className="site-footer__sync">Last sync {lastUpdated ? fmtTime(lastUpdated) : 'waiting for feed'}</span>
                 </div>
 
                 <div className="site-footer__links" aria-label="Footer links and data sources">
@@ -743,13 +767,13 @@ export default function App() {
     }, [])
 
     // Filter by search
-    const q = search.trim().toUpperCase()
+    const q = search.replace(/,/g, ' ').trim().toUpperCase()
     const searchTokens = q.split(/\s+/).filter(Boolean)
     const filtered = useMemo(() => {
         const displayedRestrictions = restrictions.filter(t => DISPLAYED_RESTRICTION_TYPES.has(t.type))
         if (searchTokens.length === 0) return displayedRestrictions
         return displayedRestrictions.filter(t =>
-            searchTokens.every(token => [t.aerodrome, t.controlledElement, t.nasElement, t.name, t.providingFacility]
+            searchTokens.some(token => [t.aerodrome, t.controlledElement, t.nasElement, t.name, t.providingFacility]
                 .filter(Boolean)
                 .some(value => value.toUpperCase().includes(token)))
         )
@@ -898,7 +922,7 @@ export default function App() {
                 )}
             </main>
 
-            <SiteFooter connected={connected} lastUpdated={lastUpdated} />
+            <SiteFooter connected={connected} />
         </div>
     )
 }
