@@ -110,6 +110,7 @@ button, input { font: inherit; }
 .airport-operation__metrics span, .airport-operation__metrics em { white-space: normal; }
 .airport-operation__metric--average { color: #e7b75b !important; }
 .airport-operation__metric--maximum { color: #ee8b7f !important; }
+.airport-operation__metric--extension { color: #c1a4e8 !important; }
 .airport-operation__metric--range { color: #8ccfc8 !important; }
 .airport-operation__metric--trend { color: #63c5bd !important; }
 .airport-operation__metric--trend-increasing { color: #efa66a !important; }

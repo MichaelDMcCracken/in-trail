@@ -11,6 +11,15 @@ function fmtTime(iso) {
     }) + 'Z'
 }
 
+function fmtGroundStopEnd(iso) {
+    if (!iso) return 'end time not posted'
+    const date = new Date(iso)
+    const format = timeZone => date.toLocaleTimeString('en-US', {
+        timeZone, hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
+    })
+    return `${format('America/New_York')} / ${format('UTC')}`
+}
+
 function fmtRelative(iso) {
     if (!iso) return null
     const diff = new Date(iso) - Date.now()
@@ -362,7 +371,7 @@ function AirportOperations({ operations, autoExpand, query }) {
     return (
         <section className="group-card airport-operations-card">
             <button className="group-card__header airport-operations-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
-                <h2 className="group-card__title"><span className="group-card__icon">◉</span><span>Airport operations</span></h2>
+                <h2 className="group-card__title"><span className="group-card__icon">◉</span><span>Airport Operations</span></h2>
                 <span className="airport-operations-card__meta">FAA NAS status · posted live data</span>
                 <span className="collapse-chevron" aria-hidden="true">{collapsed ? '+' : '−'}</span>
             </button>
@@ -373,7 +382,11 @@ function AirportOperations({ operations, autoExpand, query }) {
                         <h3>Arrival ground stops <strong>{groundStops.length}</strong></h3>
                         {groundStops.map(item => (
                             <div className="airport-operation" key={`stop-${item.airport}`}>
-                                <strong>{item.airport}</strong><span>{item.reason}</span><em>until {item.endTime}</em>
+                                <strong>{item.airport}</strong><span>Due to {item.reason ? item.reason.toLowerCase() : 'reason not posted'}</span>
+                                <div className="airport-operation__metrics">
+                                    <em>Until {fmtGroundStopEnd(item.endTime)}</em>
+                                    <em className="airport-operation__metric--extension">Probability of extension {item.probabilityOfExtension || 'not posted'}</em>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -395,7 +408,7 @@ function AirportOperations({ operations, autoExpand, query }) {
                         {departureDelays.map(item => (
                             <div className="airport-operation" key={`departure-${item.airport}`}>
                                 <strong>{item.airport}</strong><span>{summarizeDelayReason(item.reason)}</span>
-                                <div className="airport-operation__metrics"><span className="airport-operation__metric--range">{item.minimumDelay} to {item.maximumDelay}</span><em className={`airport-operation__metric--trend airport-operation__metric--trend-${item.trend.toLowerCase()}`}>{item.trend}</em></div>
+                                <div className="airport-operation__metrics"><span className="airport-operation__metric--range">{item.minimumDelay} to {item.maximumDelay}</span><em className={`airport-operation__metric--trend airport-operation__metric--trend-${item.trend.toLowerCase()}`}>Delays {item.trend.toLowerCase()}</em></div>
                             </div>
                         ))}
                     </div>
@@ -426,7 +439,7 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
     return (
         <section className="group-card current-reroutes-card">
             <button className="group-card__header current-reroutes-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
-                <h2 className="group-card__title"><span className="group-card__icon">↪</span><span>FAA route advisories</span></h2>
+                <h2 className="group-card__title"><span className="group-card__icon">↪</span><span>FAA Route Advisories</span></h2>
                 <span className="current-reroutes-card__meta">{reroutes.length} advisories · ATCSCC</span>
                 <span className="collapse-chevron" aria-hidden="true">{collapsed ? '+' : '−'}</span>
             </button>

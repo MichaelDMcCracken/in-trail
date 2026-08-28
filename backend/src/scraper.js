@@ -240,17 +240,25 @@ async function fetchNasClosures() {
 }
 
 async function fetchAirportOperations() {
+    const eventsResponse = await axios.get('https://nasstatus.faa.gov/api/airport-events');
+    const airportEvents = Array.isArray(eventsResponse.data) ? eventsResponse.data : [];
     const status = await fetchNasStatus();
     const delayTypes = toArray(status?.AIRPORT_STATUS_INFORMATION?.Delay_type);
     const groundStopType = delayTypes.find(type => type.Name === 'Ground Stop Programs');
     const groundDelayType = delayTypes.find(type => type.Name === 'Ground Delay Programs');
     const generalDelayType = delayTypes.find(type => type.Name === 'General Arrival/Departure Delay Info');
-    const groundStops = toArray(groundStopType?.Ground_Stop_List?.Program).map(program => ({
-        airport: airportCode(program.ARPT),
-        aerodrome: `K${airportCode(program.ARPT)}`,
-        reason: textValue(program.Reason),
-        endTime: textValue(program.End_Time),
-    })).filter(item => item.airport);
+    const groundStops = airportEvents
+        .filter(event => event.groundStop)
+        .map(event => ({
+            airport: airportCode(event.airportId),
+            aerodrome: `K${airportCode(event.airportId)}`,
+            reason: textValue(event.groundStop.impactingCondition),
+            endTime: textValue(event.groundStop.endTime || event.groundStop.programExpirationTime),
+            probabilityOfExtension: textValue(event.groundStop.probabilityOfExtension),
+            center: textValue(event.groundStop.center),
+            advisoryUrl: textValue(event.groundStop.advisoryUrl),
+        }))
+        .filter(item => item.airport);
     const groundDelayPrograms = toArray(groundDelayType?.Ground_Delay_List?.Ground_Delay).map(program => ({
         airport: airportCode(program.ARPT),
         aerodrome: `K${airportCode(program.ARPT)}`,
