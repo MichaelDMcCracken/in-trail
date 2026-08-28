@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { ARTCC_NAMES, TRACON_NAMES, FACILITY_NAMES, CONTROL_FACILITY_NAMES } from './facilityNames'
+import Guide from './Guide'
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -687,7 +688,7 @@ function OperationsPlan({ plan, autoExpand }) {
     )
 }
 
-function SiteFooter({ connected }) {
+function SiteFooter({ connected, onOpenGuide }) {
     return (
         <footer className="site-footer">
             <div className="site-footer__inner">
@@ -701,6 +702,8 @@ function SiteFooter({ connected }) {
                 <div className="site-footer__links" aria-label="Footer links and data sources">
                     <span>© 2026 In Trail</span>
                     <span className="site-footer__separator">•</span>
+                    <button className="site-footer__button" type="button" onClick={onOpenGuide}>User guide</button>
+                    <span className="site-footer__separator">•</span>
                     <a href="https://github.com/MichaelDMcCracken/in-trail" target="_blank" rel="noreferrer">GitHub</a>
                     <span className="site-footer__separator">•</span>
                     <a href="mailto:michael.mccracken172+intrail@gmail.com?subject=In%20Trail%20Beta%20Feedback">Submit feedback</a>
@@ -713,6 +716,7 @@ function SiteFooter({ connected }) {
 // ── App ──────────────────────────────────────────────────────────────────────
 
 export default function App() {
+    const [showGuide, setShowGuide] = useState(false)
     const [connected, setConnected] = useState(false)
     const [lastUpdated, setLastUpdated] = useState(null)
     const [restrictions, setRestrictions] = useState([])
@@ -833,7 +837,7 @@ export default function App() {
                 </div>
             </header>
 
-            <main className="dashboard">
+            {showGuide ? <Guide onBack={() => setShowGuide(false)} /> : <main className="dashboard">
                 <section className="intro">
                     <div>
                         <p className="eyebrow">FAA SWIM / TFDM FEED</p>
@@ -920,9 +924,9 @@ export default function App() {
                         </div>}
                     </section>
                 )}
-            </main>
+            </main>}
 
-            <SiteFooter connected={connected} />
+            <SiteFooter connected={connected} onOpenGuide={() => setShowGuide(true)} />
         </div>
     )
 }
