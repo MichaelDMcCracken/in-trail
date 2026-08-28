@@ -7,6 +7,14 @@ const cheerio = require('cheerio');
 const cache = new NodeCache({ stdTTL: 120 });
 const OPS_PLAN_FALLBACK_URL = process.env.OPS_PLAN_URL || 'https://www.fly.faa.gov/adv/adv_otherdis?advn=93&adv_date=08252026&facId=ATCSCC&title=ATCSCC%20ADVZY%20093%20DCC%2008%2F25%2F2026%20OPERATIONS%20PLAN&titleDate=08%2F25%2F2026';
 const CURRENT_REROUTES_URL = 'https://www.fly.faa.gov/current_reroutes/index';
+const CANADIAN_AIRPORT_CODES = new Set([
+    'YBC', 'YBG', 'YBL', 'YBR', 'YCB', 'YCD', 'YCG', 'YCL', 'YCT', 'YDF', 'YDL', 'YDQ',
+    'YEG', 'YFB', 'YFC', 'YFS', 'YGK', 'YGP', 'YGR', 'YHM', 'YHZ', 'YKA', 'YKF', 'YLW',
+    'YMM', 'YMO', 'YMW', 'YMX', 'YNA', 'YOW', 'YPA', 'YQB', 'YQG', 'YQR', 'YQT', 'YQU',
+    'YQX', 'YQY', 'YRB', 'YRI', 'YSB', 'YSJ', 'YSM', 'YSR', 'YTS', 'YUL', 'YVR', 'YVT',
+    'YWG', 'YWK', 'YWK', 'YXC', 'YXE', 'YXJ', 'YXY', 'YYB', 'YYC', 'YYG', 'YYJ', 'YYQ',
+    'YYR', 'YYT', 'YYZ', 'YZF', 'YZP', 'YZR', 'YZT', 'YZV', 'YZT',
+]);
 
 const ADVISORY_FIELDS = [
     ['INCLUDE TRAFFIC', 'includeTraffic'],
@@ -22,7 +30,17 @@ const ADVISORY_FIELDS = [
 
 function parseAdvisoryDetail(rawText) {
     const lines = rawText.split('\n').map(line => line.replace(/\s+$/, ''));
-    const details = {};
+    const details = {
+        includeTraffic: null,
+        facilitiesIncluded: null,
+        flightStatus: null,
+        valid: null,
+        probabilityOfExtension: null,
+        remarks: null,
+        associatedRestrictions: null,
+        modifications: null,
+        reason: null,
+    };
     let currentField = null;
     let routeStart = -1;
 
@@ -52,7 +70,9 @@ function buildRoutePlans(routes) {
     const toRoutes = routes.filter(route => route.section === 'TO');
     return fromRoutes.flatMap(fromRoute => toRoutes.map(toRoute => ({
         origins: fromRoute.origins,
+        originExclusions: fromRoute.originExclusions || [],
         destinations: toRoute.destinations,
+        destinationExclusions: toRoute.destinationExclusions || [],
         route: cleanRoute(`${fromRoute.route} ${toRoute.route}`),
     })));
 }
@@ -66,7 +86,13 @@ function parseEndpointGroup(value) {
     const normalized = (value || '').trim();
     if (!normalized) return { codes: [], exclusions: [] };
 
-    const merged = normalized.replace(/\s*\)\s+\s*/g, ') ').replace(/\s+\(/g, ' (').replace(/\s+/g, ' ').trim();
+    const merged = normalized
+        .replace(/\s*\)\s+\s*/g, ') ')
+        .replace(/\s+\(/g, ' (')
+        .replace(/\(\s+/g, '(')
+        .replace(/\s+\)/g, ')')
+        .replace(/\s+/g, ' ')
+        .trim();
     const exclusionMatch = merged.match(/([A-Z][A-Z0-9]{2,4})\s*\(\s*(.*?)\s*\)/i);
     if (exclusionMatch) {
         const groupText = (exclusionMatch[2] || '').trim();
@@ -115,7 +141,7 @@ function parseAdvisoryRoutes(lines) {
             const hasRouteEndpoint = /\bK[A-Z0-9]{2,3}\b|\bZ[A-Z0-9]{2,3}\b/.test(endpointCandidate);
             if (hasRouteEndpoint) {
                 const hasParentheticalException = /[A-Z][A-Z0-9]{2,4}\s*\([^)]*\)/i.test(endpointCandidate);
-                const hasUnclosedParenthetical = /[A-Z][A-Z0-9]{2,4}\s*\([^)]*$/.test(endpointCandidate) || (origin.includes('(') && destination.startsWith('-')) || /^-[A-Z0-9]{3,4}\)?$/.test(destination);
+                const hasUnclosedParenthetical = /[A-Z][A-Z0-9]{2,4}\s*\([^)]*$/.test(endpointCandidate) || (origin.includes('(') && destination.startsWith('-')) || (origin.includes('(') && destination.includes(')')) || /^-[A-Z0-9]{3,4}\)?$/.test(destination);
                 const shouldMergeException = hasParentheticalException || hasUnclosedParenthetical;
                 const originValue = shouldMergeException ? endpointCandidate : origin;
                 const destinationValue = shouldMergeException ? '' : destination;
@@ -134,9 +160,10 @@ function parseAdvisoryRoutes(lines) {
                 previous.route = `${previous.route} ${clean}`.trim();
             }
         } else if (originOrDestination) {
+            const endpoints = parseEndpointGroup(originOrDestination);
             previous = section === 'FROM'
-                ? { section, origins: originOrDestination.split(/\s+/), destinations: [], route }
-                : { section, origins: [], destinations: originOrDestination.split(/\s+/), route };
+                ? { section, origins: endpoints.codes, originExclusions: endpoints.exclusions, destinations: [], route }
+                : { section, origins: [], destinations: endpoints.codes, destinationExclusions: endpoints.exclusions, route };
             routes.push(previous);
         } else if (previous) {
             previous.route = `${previous.route} ${clean}`.trim();
@@ -264,7 +291,7 @@ async function fetchNasClosures() {
         const times = reason.match(/(\d{6})(\d{4})-(\d{6})(\d{4})/);
         return {
             id: `nas-${code}-${reason}`,
-            aerodrome: code.startsWith('K') ? code : `K${code}`,
+            aerodrome: icaoAirportCode(code),
             name: 'Airport closed',
             state: 'ACTIVATED',
             startTime: times ? parseNotamTime(times[1], times[2]) : null,
@@ -287,7 +314,7 @@ async function fetchAirportOperations() {
         .filter(event => event.groundStop)
         .map(event => ({
             airport: airportCode(event.airportId),
-            aerodrome: `K${airportCode(event.airportId)}`,
+            aerodrome: icaoAirportCode(event.airportId),
             reason: textValue(event.groundStop.impactingCondition),
             endTime: textValue(event.groundStop.endTime || event.groundStop.programExpirationTime),
             probabilityOfExtension: textValue(event.groundStop.probabilityOfExtension),
@@ -297,7 +324,7 @@ async function fetchAirportOperations() {
         .filter(item => item.airport);
     const groundDelayPrograms = toArray(groundDelayType?.Ground_Delay_List?.Ground_Delay).map(program => ({
         airport: airportCode(program.ARPT),
-        aerodrome: `K${airportCode(program.ARPT)}`,
+        aerodrome: icaoAirportCode(program.ARPT),
         reason: textValue(program.Reason),
         comments: textValue(program.Comment || program.Comments || program.Note || program.Notes),
         averageDelay: textValue(program.Avg),
@@ -308,8 +335,8 @@ async function fetchAirportOperations() {
             .filter(item => String(item.$?.Type || '').toLowerCase() === 'departure')
             .map(item => ({
                 airport: airportCode(delay.ARPT),
-                aerodrome: `K${airportCode(delay.ARPT)}`,
-                reason: textValue(delay.Reason),
+                aerodrome: icaoAirportCode(delay.ARPT),
+                reason: textValue(delay.Reason).replace(/\bRWY:\s*DISABLED AIRCRAFT\b/i, 'a disabled aircraft on the runway'),
                 minimumDelay: textValue(item.Min),
                 maximumDelay: textValue(item.Max),
                 trend: textValue(item.Trend),
@@ -328,6 +355,12 @@ function textValue(value) {
 
 function airportCode(value) {
     return textValue(value).toUpperCase();
+}
+
+function icaoAirportCode(value) {
+    const code = airportCode(value);
+    if (CANADIAN_AIRPORT_CODES.has(code)) return `C${code}`;
+    return /^[KC][A-Z0-9]{3}$/.test(code) ? code : `K${code}`;
 }
 
 async function fetchOpsPlan() {
@@ -530,16 +563,33 @@ function toPlainLanguage(description) {
     const sourceText = description
         .replace(/\s+[A-Z0-9/]+:[A-Z0-9/,]+\s*$/, '')
         .replace(/\b\d{4}-\d{4}\b/g, '')
-        .replace(/\s+/g, ' ')
+        .replace(/\bRALT\b\s*/gi, '')
+        .replace(/\bALT:\s*A(?:OA|OB)(?:\/A(?:OA|OB))?\s*(?:FL)?\d{2,3}\b\s*/gi, '')
+        .replace(/\bRWY:\s*DISABLED AIRCRAFT\b/gi, 'a disabled aircraft on the runway')
+        .replace(/\bVOL:\s*VOLUME\b/gi, 'volume')
+        .replace(/\bWX:\s*([A-Z])?/gi, (_, firstLetter) => firstLetter ? `due to ${firstLetter.toLowerCase()}` : 'due to ')
         .trim();
 
-    const stopMatch = sourceText.match(/^STOP\s+\S+\s+to\s+\S+\s+via\s+(\S+)(?:\s+SINGLE STREAM AS ONE)?(?:\s+WX:?\s*(.+))?$/i)
-        || sourceText.match(/^STOP\s+(.+?)\s+via\s+(\S+)(?:\s+WX:?\s*(.+))?$/i);
-    if (stopMatch) {
-        const route = stopMatch.length === 3 ? stopMatch[1] : stopMatch[2];
-        const weather = stopMatch.length === 3 ? stopMatch[2] : stopMatch[3];
-        const cause = weather ? ` because of ${weather.toLowerCase()}` : '';
-        return `Routing via ${route} is closed${cause}.`;
+    const stopMatch = sourceText.match(/^STOP\s+\S+\s+to\s+\S+\s+via\s+(\S+)(?:\s+SINGLE STREAM AS ONE)?(?:\s+WX:?\s*(.+))?$/i);
+    const compactStopMatch = sourceText.match(/^STOP\s+(.+?)\s+via\s+(\S+)(.*)$/i);
+    if (stopMatch || compactStopMatch) {
+        const facilities = compactStopMatch ? compactStopMatch[1].replace(/\s*,\s*/g, ', ') : null;
+        const route = stopMatch ? stopMatch[1] : compactStopMatch[2];
+        const routeLabel = /^ARS$/i.test(route) ? 'the ARs' : route;
+        const tail = stopMatch ? stopMatch[2] : compactStopMatch[3];
+        const exceptionMatch = tail?.match(/\bexcept\s+(.+?)(?=\s+(?:OTHER:|WX:?|due to)\b|$)/i);
+        const exceptions = exceptionMatch?.[1].replace(/\s*\/\s*/g, ', ').replace(/,\s*$/, '').trim();
+        const hasStaffing = /\bSTAFFING\b/i.test(tail || '');
+        const weather = !hasStaffing
+            ? tail?.match(/(?:WX:?|due to)\s*(.+)$/i)?.[1].replace(/[.]+$/, '').trim()
+            : null;
+        const cause = hasStaffing ? ', due to staffing' : weather ? ` because of ${weather.toLowerCase()}` : '';
+        const exceptionText = exceptions ? `, except ${exceptions}` : '';
+        return `${facilities ? `Routing from ${facilities} via ${routeLabel} closed` : `Routing via ${routeLabel} is closed`}${exceptionText}${cause}.`;
+    }
+
+    if (/^STOP\s+\S+\s+via(?:\s+due to\s+.+)?$/i.test(sourceText)) {
+        return 'Ground stop in effect.';
     }
 
     const scheduleMatch = sourceText.match(/^SCHEDULE DEPTS TO (\S+) INTO TBFM - DO NOT DELAY AIRBORNE FLTS$/i);
