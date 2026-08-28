@@ -461,7 +461,7 @@ button, input { font: inherit; }
 .search-box__key { padding: 4px 7px; border: 1px solid #334b53; border-radius: 5px; color: #78909a; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 .group-card { overflow: hidden; margin-top: 14px; border: 1px solid #2b4048; border-radius: 10px; background: #0e1b21; box-shadow: 0 12px 30px rgba(0, 0, 0, .14); }
-.group-card__header { width: 100%; justify-content: space-between; min-height: 50px; padding: 0 16px; border: 0; border-bottom: 1px solid #2b4048; color: inherit; background: #14252b; text-align: left; cursor: pointer; }
+.group-card__header { position: sticky; top: 76px; z-index: 4; width: 100%; justify-content: space-between; min-height: 50px; padding: 0 16px; border: 0; border-bottom: 1px solid #2b4048; color: inherit; background: #14252b; text-align: left; cursor: pointer; }
 .group-card__header:hover { background: #1a3037; }
 .group-card__header:focus-visible { outline: 2px solid #e7b75b; outline-offset: -2px; }
 .group-card__title { gap: 9px; margin: 0; color: #e7edf2; font-size: 13px; letter-spacing: .01em; }
@@ -569,7 +569,7 @@ button, input { font: inherit; }
   .current-reroute__detail { padding-left: 18px; }
   .current-reroute__fields > div { grid-template-columns: 1fr; gap: 2px; }
   .current-reroute__route { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5px 8px; }
-  .group-card__header { padding: 0 12px; }
+  .group-card__header { top: 68px; padding: 0 12px; }
   .restriction-row { grid-template-columns: 1fr auto; align-items: start; gap: 9px 10px; padding: 12px; }
   .restriction-status { grid-column: 1; }
   .airport-code { grid-column: 2; text-align: right; }
