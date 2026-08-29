@@ -374,10 +374,14 @@ button, input { font: inherit; }
 .airport-operations__group { min-width: 0; padding: 12px; border: 1px solid #304850; border-radius: 7px; background: rgba(9, 17, 22, .52); }
 .airport-operations__group h3 { display: flex; justify-content: space-between; gap: 8px; margin: 0 0 9px; color: #c6d3d5; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-transform: uppercase; }
 .airport-operations__group h3 strong { color: #e7b75b; }
-.airport-operation { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 2px 8px; padding: 8px 0; border-top: 1px solid rgba(43, 64, 72, .55); }
-.airport-operation strong { grid-row: span 2; color: #f3f6f5; font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.airport-operation { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 8px; padding: 8px 0; border-top: 1px solid rgba(43, 64, 72, .55); }
+.airport-operation > strong { color: #f3f6f5; font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; align-self: start; }
+.airport-operation__info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .airport-operation span, .airport-operation em { min-width: 0; color: #9fb1b5; font-size: 11px; font-style: normal; overflow-wrap: anywhere; }
-.airport-operation em { color: #e7b75b; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.airport-operation em { color: #e7b75b; font-size: 11px; }
+.airport-operation__scope { min-width: 0; color: #9fb1b5; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.airport-operation__scope-label { color: #78909a; margin-right: 4px; }
+.airport-operation__scope .center-term { color: #f3f6f5; font-weight: 600; }
 .airport-operation__metrics { display: grid; gap: 2px; min-width: 0; }
 .airport-operation__metrics span, .airport-operation__metrics em { white-space: normal; }
 .airport-operation__metric--average { color: #e7b75b !important; }

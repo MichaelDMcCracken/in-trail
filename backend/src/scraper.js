@@ -310,6 +310,11 @@ async function fetchAirportOperations() {
     const groundStopType = delayTypes.find(type => type.Name === 'Ground Stop Programs');
     const groundDelayType = delayTypes.find(type => type.Name === 'Ground Delay Programs');
     const generalDelayType = delayTypes.find(type => type.Name === 'General Arrival/Departure Delay Info');
+    const groundDelayMap = new Map(
+        airportEvents
+            .filter(event => event.groundDelay)
+            .map(event => [airportCode(event.airportId), event.groundDelay])
+    );
     const groundStops = airportEvents
         .filter(event => event.groundStop)
         .map(event => ({
@@ -320,16 +325,48 @@ async function fetchAirportOperations() {
             probabilityOfExtension: textValue(event.groundStop.probabilityOfExtension),
             center: textValue(event.groundStop.center),
             advisoryUrl: textValue(event.groundStop.advisoryUrl),
+            simpleScope: textValue(event.groundStop.simpleScope),
+            departureScope: event.groundStop.departureScope,
+            includedFacilities: event.groundStop.includedFacilities,
+            includedFlights: textValue(event.groundStop.includedFlights),
+            scope: formatScope(event.groundStop),
         }))
         .filter(item => item.airport);
-    const groundDelayPrograms = toArray(groundDelayType?.Ground_Delay_List?.Ground_Delay).map(program => ({
-        airport: airportCode(program.ARPT),
-        aerodrome: icaoAirportCode(program.ARPT),
-        reason: textValue(program.Reason),
-        comments: textValue(program.Comment || program.Comments || program.Note || program.Notes),
-        averageDelay: textValue(program.Avg),
-        maximumDelay: textValue(program.Max),
-    })).filter(item => item.airport);
+    const groundDelayPrograms = toArray(groundDelayType?.Ground_Delay_List?.Ground_Delay).map(program => {
+        const arpt = airportCode(program.ARPT);
+        const gdEvent = groundDelayMap.get(arpt);
+        return {
+            airport: arpt,
+            aerodrome: icaoAirportCode(program.ARPT),
+            reason: textValue(program.Reason || gdEvent?.impactingCondition),
+            comments: textValue(program.Comment || program.Comments || program.Note || program.Notes),
+            averageDelay: textValue(program.Avg || (gdEvent?.avgDelay ? `${gdEvent.avgDelay} minutes` : '')),
+            maximumDelay: textValue(program.Max || (gdEvent?.maxDelay ? `${gdEvent.maxDelay} minutes` : '')),
+            simpleScope: textValue(gdEvent?.simpleScope || program.simpleScope || program.Scope),
+            departureScope: gdEvent?.departureScope,
+            includedFacilities: gdEvent?.includedFacilities,
+            includedFlights: textValue(gdEvent?.includedFlights),
+            scope: formatScope(gdEvent) || formatScope(program) || textValue(program.Scope || program.simpleScope),
+        };
+    }).filter(item => item.airport);
+
+    for (const [arpt, gdEvent] of groundDelayMap.entries()) {
+        if (!groundDelayPrograms.some(p => p.airport === arpt)) {
+            groundDelayPrograms.push({
+                airport: arpt,
+                aerodrome: icaoAirportCode(arpt),
+                reason: textValue(gdEvent.impactingCondition),
+                comments: '',
+                averageDelay: textValue(gdEvent.avgDelay ? `${gdEvent.avgDelay} minutes` : ''),
+                maximumDelay: textValue(gdEvent.maxDelay ? `${gdEvent.maxDelay} minutes` : ''),
+                simpleScope: textValue(gdEvent.simpleScope),
+                departureScope: gdEvent.departureScope,
+                includedFacilities: gdEvent.includedFacilities,
+                includedFlights: textValue(gdEvent.includedFlights),
+                scope: formatScope(gdEvent),
+            });
+        }
+    }
     const postedDepartureDelays = toArray(generalDelayType?.Arrival_Departure_Delay_List?.Delay)
         .flatMap(delay => toArray(delay.Arrival_Departure)
             .filter(item => String(item.$?.Type || '').toLowerCase() === 'departure')
@@ -351,6 +388,73 @@ function toArray(value) {
 
 function textValue(value) {
     return value == null ? '' : String(value).trim();
+}
+
+function formatScope(obj) {
+    if (!obj) return '';
+
+    let rawScope = textValue(obj.departureScope || obj.simpleScope || obj.Departure_Scope || obj.simple_scope);
+    if (!rawScope && obj.scope && !['ARRIVALS', 'DEPARTURES', 'TRAFFIC'].includes(String(obj.scope).trim().toUpperCase())) {
+        rawScope = textValue(obj.scope);
+    }
+    if (!rawScope && obj.Scope && !['ARRIVALS', 'DEPARTURES', 'TRAFFIC'].includes(String(obj.Scope).trim().toUpperCase())) {
+        rawScope = textValue(obj.Scope);
+    }
+
+    if (rawScope) {
+        rawScope = rawScope.replace(/\.0$/, '');
+        if (/^\d+$/.test(rawScope)) rawScope = `${rawScope}nm`;
+    }
+
+    let rawFacilities = obj.includedFacilities || obj.Facilities_Included || obj.Incl_Fac || obj.facilitiesIncluded || null;
+    let rawFlights = textValue(obj.includedFlights || obj.Include_Traffic || obj.includeTraffic);
+
+    let facilitiesList = [];
+    if (Array.isArray(rawFacilities)) {
+        facilitiesList = rawFacilities.map(f => textValue(f)).filter(Boolean);
+    } else if (typeof rawFacilities === 'string' && rawFacilities.trim()) {
+        facilitiesList = rawFacilities.trim().split(/[\s,/]+/).filter(Boolean);
+    }
+
+    if (rawScope && /^\d+\s*nm$/i.test(rawScope)) {
+        const dist = rawScope.toLowerCase();
+        if (facilitiesList.length > 0 && facilitiesList.length <= 6) {
+            return `${dist} + ${facilitiesList.join(', ')}`;
+        }
+        return dist;
+    }
+
+    if (rawScope && /tier/i.test(rawScope)) {
+        if (facilitiesList.length > 0 && facilitiesList.length <= 6) {
+            return `${rawScope} + ${facilitiesList.join(', ')}`;
+        }
+        return rawScope;
+    }
+
+    if (rawScope) {
+        if (facilitiesList.length > 0 && facilitiesList.length <= 6 && !rawScope.includes(facilitiesList[0])) {
+            return `${rawScope} + ${facilitiesList.join(', ')}`;
+        }
+        return rawScope;
+    }
+
+    if (facilitiesList.length > 0) {
+        if (facilitiesList.length >= 15 || /ALL CONTIGUOUS US/i.test(rawFlights)) {
+            const canadian = facilitiesList.filter(f => /^CY/i.test(f));
+            if (canadian.length > 0 && canadian.length <= 6) {
+                return `Contiguous US + ${canadian.join(', ')}`;
+            }
+            return 'Contiguous US';
+        }
+        return facilitiesList.join(', ');
+    }
+
+    if (rawFlights) {
+        if (/ALL CONTIGUOUS US/i.test(rawFlights)) return 'Contiguous US';
+        return rawFlights.replace(/^:\s*/, '');
+    }
+
+    return '';
 }
 
 function airportCode(value) {
