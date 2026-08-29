@@ -21,6 +21,16 @@ function isCurrent(tmi) {
     return true;
 }
 
+function normalizeScope(type, rawScope, rawRestriction) {
+    const candidates = [rawScope, rawRestriction].filter(value => typeof value === 'string' && value.trim());
+    const explicit = candidates.map(value => value.trim().toUpperCase().replace(/\s+/g, ' '))
+        .find(value => value === 'ARRIVALS' || value === 'DEPARTURES');
+    if (explicit) return explicit;
+    if (type === 'GDP') return 'ARRIVALS';
+    if (type === 'STOP' || type === 'GS') return 'DEPARTURES';
+    return null;
+}
+
 function isRelevant(tmi) {
     if (!RELEVANT_TYPES.has(tmi.type)) return false;
     if (!SHOW_STATUSES.has(tmi.status)) return false;
@@ -146,6 +156,7 @@ async function handleMessage(xmlString) {
                 continue;
             }
 
+            const scope = normalizeScope(raw['tmiType'], raw['scope'], raw['restriction']);
             const tmi = {
                 id,
                 aerodrome,
@@ -161,7 +172,8 @@ async function handleMessage(xmlString) {
                 milesInTrail: parseInt(raw['milesInTrailSpacing']) || 0,
                 minutesInTrail: parseInt(raw['minutesInTrailSpacing']) || 0,
                 reason: (raw['reason'] || '').replace(/:/g, ' ').trim() || null,
-                restriction: raw['restriction'] || null,   // DEPARTURES / ARRIVALS
+                scope,
+                restriction: raw['restriction'] || scope || null,
                 providingFacility: raw['providingFacility'] || null,
                 requestingFacility: raw['requestingFacility'] || null,
             };

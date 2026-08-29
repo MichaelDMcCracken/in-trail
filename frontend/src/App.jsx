@@ -102,17 +102,10 @@ function fmtEndTime(iso) {
 const GROUPS = [
     {
         key: 'stop',
-        label: 'Ground Stops & Route Closures',
+        label: 'Route Closures',
         icon: '🛑',
         color: 'red',
-        matches: tmi => ['STOP', 'GS'].includes(tmi.type),
-    },
-    {
-        key: 'gdp',
-        label: 'Ground Delay Programs',
-        icon: '⏱',
-        color: 'orange',
-        types: ['GDP'],
+        matches: tmi => tmi.type === 'STOP',
     },
     {
         key: 'trail',
@@ -194,7 +187,8 @@ function describe(tmi) {
         ? tmi.name.replace(/\s+\d+\s*(?:MIT|MINIT)\s*$/i, '').trim()
         : tmi.controlledElement || tmi.nasElement || tmi.aerodrome
     const target = rawTarget.includes('/') ? formatRoute(rawTarget) : rawTarget.replace(/\*/g, '')
-    const flow = tmi.restriction ? tmi.restriction.toLowerCase() : 'traffic'
+    const scope = (tmi.scope || tmi.restriction || (tmi.type === 'GDP' ? 'ARRIVALS' : isGroundStop ? 'DEPARTURES' : 'TRAFFIC')).toUpperCase()
+    const flow = scope === 'ARRIVALS' ? 'arrivals' : scope === 'DEPARTURES' ? 'departures' : 'traffic'
     const reason = tmi.reason ? ` ${summarizeTmiReason(tmi.reason)}.` : ''
 
     switch (tmi.type) {
@@ -202,7 +196,7 @@ function describe(tmi) {
         case 'GS':
             return `Ground stop on ${flow} to ${target} ${from}.${reason}`
         case 'GDP':
-            return `Ground delay program into ${target} ${from}`
+            return `Ground delay program for ${flow} into ${target} ${from}.${reason}`
         case 'MINIT':
             return `${tmi.minutesInTrail}-minute in-trail at ${target}${tmi.milesInTrail ? ` (${tmi.milesInTrail} nm)` : ''} for ${flow} ${from}.${reason}`
         case 'MIT':
@@ -257,6 +251,8 @@ function highlightAviationTerms(text) {
         .replace(/\bALT:\s*A(?:OA|OB)(?:\/A(?:OA|OB))?\s*(?:FL)?\d{2,3}\b\s*/gi, '')
         .replace(/\bRWY:\s*DISABLED AIRCRAFT\b/gi, 'a disabled aircraft on the runway')
         .replace(/\bWX:\s*([A-Z])?/gi, (_, firstLetter) => firstLetter ? `Due to ${firstLetter.toLowerCase()}` : 'Due to ')
+        .replace(/\s*,?\s*\b(?:EXCL|EXCEPT):\s*NONE\b\.?/gi, '.')
+        .replace(/\s*,?\s*\bexcept\s+NONE\b\.?/gi, '.')
         .replace(/^STOP\s+(.+?)\s+via\s+(\S+)\s+except\s+(.+?)\s+(?:OTHER:\s+\S+\s+)?STAFFING\.?$/i, (_, facilities, route, exceptions) => {
             const cleanFacilities = facilities.replace(/\s*,\s*/g, ', ')
             const cleanExceptions = exceptions.replace(/\s*\/\s*/g, ', ').replace(/,\s*$/, '').trim()
@@ -403,6 +399,7 @@ function ScrollToTopAction({ onClick }) {
 }
 
 function AirportOperations({ operations, autoExpand, query }) {
+function AirportDelays({ operations, autoExpand, query }) {
     const [collapsed, setCollapsed] = useState(true)
     const sectionRef = useRef(null)
 
@@ -425,7 +422,7 @@ function AirportOperations({ operations, autoExpand, query }) {
     return (
         <section ref={sectionRef} className="group-card airport-operations-card">
             <button className="group-card__header airport-operations-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
-                <h2 className="group-card__title"><span className="group-card__icon">◉</span><span>Airport Operations</span></h2>
+                <h2 className="group-card__title"><span className="group-card__icon">◉</span><span>Airport Delays</span></h2>
                 <span className="airport-operations-card__meta">FAA NAS status · posted live data</span>
                 <span className="collapse-chevron" aria-hidden="true">{collapsed ? '+' : '−'}</span>
             </button>
@@ -901,7 +898,7 @@ export default function App() {
                     <span className="search-box__key">⌘ K</span>
                 </label>
 
-                <AirportOperations operations={airportOperations} autoExpand={hasSearch} query={q} />
+                <AirportDelays operations={airportOperations} autoExpand={hasSearch} query={q} />
 
                 {/* Empty state */}
                 {isEmpty && (
