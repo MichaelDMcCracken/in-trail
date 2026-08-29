@@ -706,7 +706,7 @@ function OperationsPlan({ plan, autoExpand }) {
     )
 }
 
-function SiteFooter({ connected, onOpenGuide }) {
+function SiteFooter({ connected, onOpenGuide, dayMode, onToggleDayMode, themeOverride, onResetTheme }) {
     return (
         <footer className="site-footer">
             <div className="site-footer__inner">
@@ -725,6 +725,18 @@ function SiteFooter({ connected, onOpenGuide }) {
                     <a href="https://github.com/MichaelDMcCracken/in-trail" target="_blank" rel="noreferrer">GitHub</a>
                     <span className="site-footer__separator">•</span>
                     <a href="mailto:michael.mccracken172+intrail@gmail.com?subject=In%20Trail%20Beta%20Feedback">Submit feedback</a>
+                    <span className="site-footer__separator">•</span>
+                    <button className="site-footer__button" type="button" onClick={onToggleDayMode} aria-label={dayMode ? 'Switch to dark theme' : 'Switch to light theme'}>
+                        {dayMode ? '🌙 Switch to dark theme' : '☀️ Switch to light theme'}
+                    </button>
+                    {themeOverride !== null && (
+                        <>
+                            <span className="site-footer__separator">•</span>
+                            <button className="site-footer__button" type="button" onClick={onResetTheme} aria-label="Switch to automatic day/night mode">
+                                ⟳ Switch to auto
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         </footer>
@@ -732,6 +744,11 @@ function SiteFooter({ connected, onOpenGuide }) {
 }
 
 // ── App ──────────────────────────────────────────────────────────────────────
+
+function isDaytime() {
+    const hour = new Date().getHours()
+    return hour >= 6 && hour < 20
+}
 
 export default function App() {
     const [showGuide, setShowGuide] = useState(false)
@@ -744,9 +761,53 @@ export default function App() {
     const [airportOperations, setAirportOperations] = useState(null)
     const [closuresCollapsed, setClosuresCollapsed] = useState(true)
     const [search, setSearch] = useState('')
+    // themeOverride: 'day' | 'night' | null (null = follow time of day automatically)
+    const [themeOverride, setThemeOverride] = useState(() => {
+        // Migrate legacy 'theme' key written by a previous version
+        const legacy = localStorage.getItem('theme')
+        if (legacy) {
+            localStorage.removeItem('theme')
+            if (!localStorage.getItem('themeOverride') && (legacy === 'day' || legacy === 'night')) {
+                localStorage.setItem('themeOverride', legacy)
+            }
+        }
+        const stored = localStorage.getItem('themeOverride')
+        return stored === 'day' || stored === 'night' ? stored : null
+    })
+    const [autoDay, setAutoDay] = useState(isDaytime)
     const wsRef = useRef(null)
     const searchRef = useRef(null)
     const closuresSectionRef = useRef(null)
+
+    const dayMode = themeOverride !== null ? themeOverride === 'day' : autoDay
+
+    // Apply theme to <html> whenever it changes
+    useEffect(() => {
+        if (dayMode) {
+            document.documentElement.setAttribute('data-theme', 'day')
+        } else {
+            document.documentElement.removeAttribute('data-theme')
+        }
+    }, [dayMode])
+
+    // Re-check time-of-day every minute so the theme switches automatically
+    useEffect(() => {
+        const id = setInterval(() => setAutoDay(isDaytime()), 60_000)
+        return () => clearInterval(id)
+    }, [])
+
+    function handleToggleTheme() {
+        // Pressing the button toggles to the opposite of the current dayMode
+        // and locks that choice as an override
+        const next = dayMode ? 'night' : 'day'
+        setThemeOverride(next)
+        localStorage.setItem('themeOverride', next)
+    }
+
+    function handleResetTheme() {
+        setThemeOverride(null)
+        localStorage.removeItem('themeOverride')
+    }
 
     useEffect(() => {
         function connect() {
@@ -946,7 +1007,7 @@ export default function App() {
                 )}
             </main>}
 
-            <SiteFooter connected={connected} onOpenGuide={() => setShowGuide(true)} />
+            <SiteFooter connected={connected} onOpenGuide={() => setShowGuide(true)} dayMode={dayMode} onToggleDayMode={handleToggleTheme} themeOverride={themeOverride} onResetTheme={handleResetTheme} />
         </div>
     )
 }
