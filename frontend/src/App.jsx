@@ -398,7 +398,6 @@ function ScrollToTopAction({ onClick }) {
     )
 }
 
-function AirportOperations({ operations, autoExpand, query }) {
 function AirportDelays({ operations, autoExpand, query }) {
     const [collapsed, setCollapsed] = useState(true)
     const sectionRef = useRef(null)
