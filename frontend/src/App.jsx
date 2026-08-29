@@ -398,6 +398,46 @@ function ScrollToTopAction({ onClick }) {
     )
 }
 
+function renderScope(scopeInput) {
+    if (!scopeInput) return null
+    let scopeText = ''
+    if (typeof scopeInput === 'string') {
+        scopeText = scopeInput.trim()
+    } else if (Array.isArray(scopeInput)) {
+        scopeText = scopeInput.join(', ')
+    } else if (typeof scopeInput === 'number') {
+        scopeText = `${scopeInput}nm`
+    } else if (typeof scopeInput === 'object') {
+        scopeText = scopeInput.text || scopeInput.raw || ''
+    }
+    if (!scopeText) return null
+
+    const tokens = scopeText.split(/([A-Z0-9]{2,5})/g).filter(Boolean)
+
+    return (
+        <>
+            {tokens.map((part, index) => {
+                const centerName = CONTROL_FACILITY_NAMES[part] || (FACILITY_NAMES[part] ? FACILITY_NAMES[part].replace(/ (Tower|TRACAB)$/, '') : null)
+                if (centerName) {
+                    return (
+                        <strong
+                            className="center-term"
+                            key={`${part}-${index}`}
+                            title={centerName}
+                            data-tooltip={centerName}
+                            tabIndex="0"
+                            aria-label={`${part}, ${centerName}`}
+                        >
+                            {part}
+                        </strong>
+                    )
+                }
+                return part
+            })}
+        </>
+    )
+}
+
 function AirportDelays({ operations, autoExpand, query }) {
     const [collapsed, setCollapsed] = useState(true)
     const sectionRef = useRef(null)
@@ -430,26 +470,53 @@ function AirportDelays({ operations, autoExpand, query }) {
                 {groundStops.length > 0 && (
                     <div className="airport-operations__group airport-operations__group--stop">
                         <h3>Arrival ground stops <strong>{groundStops.length}</strong></h3>
-                        {groundStops.map(item => (
-                            <div className="airport-operation" key={`stop-${item.airport}`}>
-                                <strong>{item.airport}</strong><span>Due to {item.reason ? item.reason.toLowerCase() : 'reason not posted'}</span>
-                                <div className="airport-operation__metrics">
-                                    <em>Until {fmtGroundStopEnd(item.endTime)}</em>
-                                    <em className="airport-operation__metric--extension">Probability of extension {item.probabilityOfExtension || 'not posted'}</em>
+                        {groundStops.map(item => {
+                            const scopeVal = item.scope || item.simpleScope || item.departureScope || item.includedFacilities || item.includedFlights
+                            return (
+                                <div className="airport-operation" key={`stop-${item.airport}`}>
+                                    <strong>{item.airport}</strong>
+                                    <div className="airport-operation__info">
+                                        <span>Due to {item.reason ? item.reason.toLowerCase() : 'reason not posted'}</span>
+                                        {scopeVal && (
+                                            <div className="airport-operation__scope">
+                                                <span className="airport-operation__scope-label">applies to departures within</span>
+                                                {renderScope(scopeVal)}
+                                            </div>
+                                        )}
+                                        <div className="airport-operation__metrics">
+                                            <em>Until {fmtGroundStopEnd(item.endTime)}</em>
+                                            <em className="airport-operation__metric--extension">Probability of extension {item.probabilityOfExtension || 'not posted'}</em>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
                 {groundDelayPrograms.length > 0 && (
                     <div className="airport-operations__group airport-operations__group--gdp">
                         <h3>Ground delay programs <strong>{groundDelayPrograms.length}</strong></h3>
-                        {groundDelayPrograms.map(item => (
-                            <div className="airport-operation" key={`gdp-${item.airport}`}>
-                                <strong>{item.airport}</strong><span>{summarizeDelayReason(item.reason)}{item.comments ? ` · ${item.comments}` : ''}</span>
-                                <div className="airport-operation__metrics"><span className="airport-operation__metric--average">avg {item.averageDelay}</span><span className="airport-operation__metric--maximum">max {item.maximumDelay}</span></div>
-                            </div>
-                        ))}
+                        {groundDelayPrograms.map(item => {
+                            const scopeVal = item.scope || item.simpleScope || item.departureScope || item.includedFacilities || item.includedFlights
+                            return (
+                                <div className="airport-operation" key={`gdp-${item.airport}`}>
+                                    <strong>{item.airport}</strong>
+                                    <div className="airport-operation__info">
+                                        <span>{summarizeDelayReason(item.reason)}{item.comments ? ` · ${item.comments}` : ''}</span>
+                                        {scopeVal && (
+                                            <div className="airport-operation__scope">
+                                                <span className="airport-operation__scope-label">applies to departures within</span>
+                                                {renderScope(scopeVal)}
+                                            </div>
+                                        )}
+                                        <div className="airport-operation__metrics">
+                                            <span className="airport-operation__metric--average">average delay {item.averageDelay}</span>
+                                            <span className="airport-operation__metric--maximum">max delay {item.maximumDelay}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
                     </div>
                 )}
                 {departureDelays.length > 0 && (
@@ -457,8 +524,14 @@ function AirportDelays({ operations, autoExpand, query }) {
                         <h3>Posted departure delays <strong>{departureDelays.length}</strong></h3>
                         {departureDelays.map(item => (
                             <div className="airport-operation" key={`departure-${item.airport}`}>
-                                <strong>{item.airport}</strong><span>{summarizeDelayReason(item.reason)}</span>
-                                <div className="airport-operation__metrics"><span className="airport-operation__metric--range">{item.minimumDelay} to {item.maximumDelay}</span><em className={`airport-operation__metric--trend airport-operation__metric--trend-${item.trend.toLowerCase()}`}>Delays {item.trend.toLowerCase()}</em></div>
+                                <strong>{item.airport}</strong>
+                                <div className="airport-operation__info">
+                                    <span>{summarizeDelayReason(item.reason)}</span>
+                                    <div className="airport-operation__metrics">
+                                        <span className="airport-operation__metric--range">{item.minimumDelay} to {item.maximumDelay}</span>
+                                        <em className={`airport-operation__metric--trend airport-operation__metric--trend-${item.trend.toLowerCase()}`}>Delays {item.trend.toLowerCase()}</em>
+                                    </div>
+                                </div>
                             </div>
                         ))}
                     </div>
