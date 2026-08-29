@@ -519,6 +519,7 @@ async function fetchRestrictions() {
                 || (description.match(/\b\d+\s*MIT\b/i) ? 'MIT' : null)
                 || 'FLOW';
             const id = [requestingFacility, providingFacility, description, startText, endText].join('|');
+            const scope = inferRestrictionScope(description, type);
 
             restrictions.push({
                 id: `faa-${Buffer.from(id).toString('base64url')}`,
@@ -538,7 +539,8 @@ async function fetchRestrictions() {
                 milesInTrail: 0,
                 minutesInTrail: 0,
                 reason: null,
-                restriction: null,
+                scope,
+                restriction: scope,
             });
         });
 
@@ -559,6 +561,15 @@ function isExcludedOperationalMessage(description) {
     return /\bTBM\b|\bMETERING\b|\bSCHEDULE\b/i.test(description);
 }
 
+function inferRestrictionScope(description, type) {
+    const upperDescription = String(description || '').toUpperCase();
+    if (/\bARRIVALS?\b/.test(upperDescription)) return 'ARRIVALS';
+    if (/\bDEPARTURES?\b/.test(upperDescription)) return 'DEPARTURES';
+    if (type === 'GDP') return 'ARRIVALS';
+    if (type === 'STOP' || type === 'GS') return 'DEPARTURES';
+    return null;
+}
+
 function toPlainLanguage(description) {
     const sourceText = description
         .replace(/\s+[A-Z0-9/]+:[A-Z0-9/,]+\s*$/, '')
@@ -568,6 +579,8 @@ function toPlainLanguage(description) {
         .replace(/\bRWY:\s*DISABLED AIRCRAFT\b/gi, 'a disabled aircraft on the runway')
         .replace(/\bVOL:\s*VOLUME\b/gi, 'volume')
         .replace(/\bWX:\s*([A-Z])?/gi, (_, firstLetter) => firstLetter ? `due to ${firstLetter.toLowerCase()}` : 'due to ')
+        .replace(/\s*,?\s*\b(?:EXCL|EXCEPT):\s*NONE\b/gi, '')
+        .replace(/\s*,?\s*\bexcept\s+NONE\b/gi, '')
         .trim();
 
     const stopMatch = sourceText.match(/^STOP\s+\S+\s+to\s+\S+\s+via\s+(\S+)(?:\s+SINGLE STREAM AS ONE)?(?:\s+WX:?\s*(.+))?$/i);
@@ -584,7 +597,7 @@ function toPlainLanguage(description) {
             ? tail?.match(/(?:WX:?|due to)\s*(.+)$/i)?.[1].replace(/[.]+$/, '').trim()
             : null;
         const cause = hasStaffing ? ', due to staffing' : weather ? ` because of ${weather.toLowerCase()}` : '';
-        const exceptionText = exceptions ? `, except ${exceptions}` : '';
+        const exceptionText = (exceptions && exceptions.toUpperCase() !== 'NONE') ? `, except ${exceptions}` : '';
         return `${facilities ? `Routing from ${facilities} via ${routeLabel} closed` : `Routing via ${routeLabel} is closed`}${exceptionText}${cause}.`;
     }
 
