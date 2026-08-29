@@ -482,6 +482,10 @@ button, input { font: inherit; }
 .group-card > :last-child { overflow: hidden; border-radius: 0 0 10px 10px; }
 .group-card__body > div { border-color: rgba(43, 64, 72, .65) !important; }
 .group-card__body > div:last-child { border-bottom: 0; }
+.scroll-top-action { display: flex; justify-content: flex-end; padding: 10px 16px 14px; border-top: 1px solid rgba(43, 64, 72, .55); }
+.scroll-top-button { padding: 6px 10px; border: 1px solid #3d585f; border-radius: 999px; color: #c6d3d5; background: #13262d; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .05em; text-transform: uppercase; cursor: pointer; }
+.scroll-top-button:hover { border-color: #4b727b; color: #e7edf2; }
+.scroll-top-button:focus-visible { outline: 2px solid #e7b75b; outline-offset: 2px; }
 .group-card.red .group-card__icon { color: #ee7468; }
 .group-card.orange .group-card__icon { color: #efa66a; }
 .group-card.yellow .group-card__icon { color: #e7b75b; }
@@ -574,6 +578,7 @@ button, input { font: inherit; }
   .current-reroute__fields > div { grid-template-columns: 1fr; gap: 2px; }
   .current-reroute__route { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5px 8px; }
   .group-card__header { top: var(--topbar-height-mobile); padding: 0 12px; }
+  .scroll-top-action { padding: 10px 12px 12px; }
   .restriction-row { grid-template-columns: 1fr auto; align-items: start; gap: 9px 10px; padding: 12px; }
   .restriction-status { grid-column: 1; }
   .airport-code { grid-column: 2; text-align: right; }

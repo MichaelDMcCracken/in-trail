@@ -388,8 +388,23 @@ function summarizeDelayReason(reason) {
     return `Due to ${value.replace(/^TM Initiatives:/i, '').trim().toLowerCase()}`
 }
 
+function scrollSectionToTop(sectionRef) {
+    sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function ScrollToTopAction({ onClick }) {
+    return (
+        <div className="scroll-top-action">
+            <button className="scroll-top-button" type="button" onClick={onClick} aria-label="Scroll to top of this section">
+                ↑ Back to top
+            </button>
+        </div>
+    )
+}
+
 function AirportOperations({ operations, autoExpand, query }) {
     const [collapsed, setCollapsed] = useState(true)
+    const sectionRef = useRef(null)
 
     useEffect(() => {
         setCollapsed(!autoExpand)
@@ -408,7 +423,7 @@ function AirportOperations({ operations, autoExpand, query }) {
     if (!hasData) return null
 
     return (
-        <section className="group-card airport-operations-card">
+        <section ref={sectionRef} className="group-card airport-operations-card">
             <button className="group-card__header airport-operations-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
                 <h2 className="group-card__title"><span className="group-card__icon">◉</span><span>Airport Operations</span></h2>
                 <span className="airport-operations-card__meta">FAA NAS status · posted live data</span>
@@ -453,6 +468,7 @@ function AirportOperations({ operations, autoExpand, query }) {
                     </div>
                 )}
                 </div>
+                <ScrollToTopAction onClick={() => scrollSectionToTop(sectionRef)} />
             </div>}
         </section>
     )
@@ -460,6 +476,7 @@ function AirportOperations({ operations, autoExpand, query }) {
 
 function CurrentReroutes({ reroutes, autoExpand, query }) {
     const [collapsed, setCollapsed] = useState(true)
+    const sectionRef = useRef(null)
 
     useEffect(() => {
         setCollapsed(!autoExpand)
@@ -499,7 +516,7 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
     if (reroutes.length === 0) return null
 
     return (
-        <section className="group-card current-reroutes-card">
+        <section ref={sectionRef} className="group-card current-reroutes-card">
             <button className="group-card__header current-reroutes-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
                 <h2 className="group-card__title"><span className="group-card__icon">↪</span><span>FAA Route Advisories</span></h2>
                 <span className="current-reroutes-card__meta current-reroutes-card__meta--summary">{requirementSummary}</span>
@@ -552,6 +569,7 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
                         </div>
                     </details>
                 ))}
+                <ScrollToTopAction onClick={() => scrollSectionToTop(sectionRef)} />
             </div>}
         </section>
     )
@@ -561,6 +579,7 @@ function CurrentReroutes({ reroutes, autoExpand, query }) {
 
 function GroupCard({ group, tmis, autoExpand }) {
     const [collapsed, setCollapsed] = useState(true)
+    const sectionRef = useRef(null)
     const style = GROUP_STYLES[group.color]
     const active = tmis.filter(t => t.status === 'ACTIVE')
     const proposed = tmis.filter(t => t.status === 'PROPOSED')
@@ -575,7 +594,7 @@ function GroupCard({ group, tmis, autoExpand }) {
     }, [autoExpand])
 
     return (
-        <section className={`group-card ${group.color}`}>
+        <section ref={sectionRef} className={`group-card ${group.color}`}>
             <button className={`group-card__header ${style.header}`} type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
                 <h2 className="group-card__title">
                     <span className="group-card__icon">{group.icon}</span>
@@ -602,6 +621,7 @@ function GroupCard({ group, tmis, autoExpand }) {
                 {sorted.map(tmi => (
                     <TMIRow key={tmi.id} tmi={tmi} style={style} />
                 ))}
+                <ScrollToTopAction onClick={() => scrollSectionToTop(sectionRef)} />
             </div>}
         </section>
     )
@@ -632,6 +652,7 @@ function ClosureRow({ aerodrome, closures }) {
 
 function OperationsPlan({ plan, autoExpand }) {
     const [collapsed, setCollapsed] = useState(true)
+    const sectionRef = useRef(null)
     useEffect(() => {
         setCollapsed(!autoExpand)
     }, [autoExpand])
@@ -639,7 +660,7 @@ function OperationsPlan({ plan, autoExpand }) {
     if (!plan) return null
 
     return (
-        <section className="group-card ops-plan-card">
+        <section ref={sectionRef} className="group-card ops-plan-card">
             <button className="group-card__header ops-plan-card__header" type="button" aria-expanded={!collapsed} onClick={() => setCollapsed(value => !value)}>
                 <h2 className="group-card__title">
                     <span className="group-card__icon">◎</span><span>Operations Plan</span>
@@ -683,6 +704,7 @@ function OperationsPlan({ plan, autoExpand }) {
                         </div>
                     </section>
                 ))}
+                <ScrollToTopAction onClick={() => scrollSectionToTop(sectionRef)} />
             </div>}
         </section>
     )
@@ -728,6 +750,7 @@ export default function App() {
     const [search, setSearch] = useState('')
     const wsRef = useRef(null)
     const searchRef = useRef(null)
+    const closuresSectionRef = useRef(null)
 
     useEffect(() => {
         function connect() {
@@ -908,7 +931,7 @@ export default function App() {
 
                 {/* Runway closures */}
                 {hasClosures && (
-                    <section className="group-card closures-card">
+                    <section ref={closuresSectionRef} className="group-card closures-card">
                         <button className="group-card__header closures-card__header" type="button" aria-expanded={!closuresCollapsed} onClick={() => setClosuresCollapsed(value => !value)}>
                             <h2 className="group-card__title">
                                 <span className="group-card__icon">🚧</span><span>Runway closures</span>
@@ -921,6 +944,7 @@ export default function App() {
                                     ? <ClosureRow key={apt} aerodrome={apt} closures={closures} />
                                     : null
                             )}
+                            <ScrollToTopAction onClick={() => scrollSectionToTop(closuresSectionRef)} />
                         </div>}
                     </section>
                 )}
