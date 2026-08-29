@@ -726,14 +726,14 @@ function SiteFooter({ connected, onOpenGuide, dayMode, onToggleDayMode, themeOve
                     <span className="site-footer__separator">•</span>
                     <a href="mailto:michael.mccracken172+intrail@gmail.com?subject=In%20Trail%20Beta%20Feedback">Submit feedback</a>
                     <span className="site-footer__separator">•</span>
-                    <button className="site-footer__button" type="button" onClick={onToggleDayMode} aria-label={dayMode ? 'Switch to night mode' : 'Switch to day mode'}>
-                        {dayMode ? '🌙 Night' : '☀️ Day'}
+                    <button className="site-footer__button" type="button" onClick={onToggleDayMode} aria-label={dayMode ? 'Switch to dark theme' : 'Switch to light theme'}>
+                        {dayMode ? '🌙 Switch to dark theme' : '☀️ Switch to light theme'}
                     </button>
                     {themeOverride !== null && (
                         <>
                             <span className="site-footer__separator">•</span>
                             <button className="site-footer__button" type="button" onClick={onResetTheme} aria-label="Switch to automatic day/night mode">
-                                ⟳ Auto
+                                ⟳ Switch to auto
                             </button>
                         </>
                     )}
