@@ -706,7 +706,7 @@ function OperationsPlan({ plan, autoExpand }) {
     )
 }
 
-function SiteFooter({ connected, onOpenGuide }) {
+function SiteFooter({ connected, onOpenGuide, dayMode, onToggleDayMode }) {
     return (
         <footer className="site-footer">
             <div className="site-footer__inner">
@@ -725,6 +725,10 @@ function SiteFooter({ connected, onOpenGuide }) {
                     <a href="https://github.com/MichaelDMcCracken/in-trail" target="_blank" rel="noreferrer">GitHub</a>
                     <span className="site-footer__separator">•</span>
                     <a href="mailto:michael.mccracken172+intrail@gmail.com?subject=In%20Trail%20Beta%20Feedback">Submit feedback</a>
+                    <span className="site-footer__separator">•</span>
+                    <button className="site-footer__button" type="button" onClick={onToggleDayMode} aria-label={dayMode ? 'Switch to night mode' : 'Switch to day mode'}>
+                        {dayMode ? '🌙 Night' : '☀️ Day'}
+                    </button>
                 </div>
             </div>
         </footer>
@@ -744,9 +748,21 @@ export default function App() {
     const [airportOperations, setAirportOperations] = useState(null)
     const [closuresCollapsed, setClosuresCollapsed] = useState(true)
     const [search, setSearch] = useState('')
+    const [dayMode, setDayMode] = useState(() => localStorage.getItem('theme') === 'day')
     const wsRef = useRef(null)
     const searchRef = useRef(null)
     const closuresSectionRef = useRef(null)
+
+    useEffect(() => {
+        const html = document.documentElement
+        if (dayMode) {
+            html.setAttribute('data-theme', 'day')
+            localStorage.setItem('theme', 'day')
+        } else {
+            html.removeAttribute('data-theme')
+            localStorage.setItem('theme', 'night')
+        }
+    }, [dayMode])
 
     useEffect(() => {
         function connect() {
@@ -946,7 +962,7 @@ export default function App() {
                 )}
             </main>}
 
-            <SiteFooter connected={connected} onOpenGuide={() => setShowGuide(true)} />
+            <SiteFooter connected={connected} onOpenGuide={() => setShowGuide(true)} dayMode={dayMode} onToggleDayMode={() => setDayMode(m => !m)} />
         </div>
     )
 }

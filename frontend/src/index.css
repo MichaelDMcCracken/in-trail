@@ -551,6 +551,229 @@ button, input { font: inherit; }
 .ops-plan-section h3 { margin: 0 0 9px; color: #e7edf2; font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
 .ops-plan-lines p { margin: 5px 0; color: #9fb1b5; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
 
+/* ── Day / Light Theme ───────────────────────────────────────────────────── */
+
+[data-theme="day"] {
+  color: #0f2027;
+  background: #edf1f3;
+}
+
+[data-theme="day"] body {
+  background: #edf1f3;
+  color: #0f2027;
+}
+
+[data-theme="day"] .app-shell {
+  background-color: #edf1f3;
+  background-image: linear-gradient(rgba(30, 80, 100, .07) 1px, transparent 1px), linear-gradient(90deg, rgba(30, 80, 100, .07) 1px, transparent 1px);
+}
+
+[data-theme="day"] .site-footer {
+  border-top-color: #c0ced4;
+  background: rgba(237, 241, 243, .94);
+}
+
+[data-theme="day"] .site-footer__meta { color: #4a6875; }
+[data-theme="day"] .site-footer__links { color: #4a6875; }
+[data-theme="day"] .site-footer__links a { color: #7a5a0a; }
+[data-theme="day"] .site-footer__button { color: #7a5a0a; }
+[data-theme="day"] .site-footer__separator { color: #7a9aa5; }
+
+[data-theme="day"] .guide-page__topline { border-bottom-color: #c0ced4; }
+[data-theme="day"] .guide-back { color: #7a5a0a; }
+[data-theme="day"] .guide-back:hover, [data-theme="day"] .guide-back:focus-visible { color: #0f2027; }
+[data-theme="day"] .guide-hero__kicker { color: #1a7875; }
+[data-theme="day"] .guide-hero h2 { color: #0f2027; }
+[data-theme="day"] .guide-hero p:last-child { color: #4a6875; }
+[data-theme="day"] .guide-section { border-top-color: #c0ced4; }
+[data-theme="day"] .guide-section h3 { color: #0f2027; }
+[data-theme="day"] .guide-index { color: #7a5a0a; }
+[data-theme="day"] .guide-steps { border-color: #c0ced4; background: #c0ced4; }
+[data-theme="day"] .guide-step { background: #f8fafb; }
+[data-theme="day"] .guide-step__number { color: #1a7875; }
+[data-theme="day"] .guide-step h4 { color: #0f2027; }
+[data-theme="day"] .guide-step p { color: #4a6875; }
+[data-theme="day"] .guide-step code { border-color: rgba(26, 120, 117, .35); color: #1a6e6b; background: rgba(26, 120, 117, .08); }
+[data-theme="day"] .guide-terms > div { border-top-color: rgba(192, 206, 212, .7); }
+[data-theme="day"] .guide-terms dt { color: #7a5a0a; }
+[data-theme="day"] .guide-terms dd { color: #4a6875; }
+[data-theme="day"] .guide-note { color: #4a6875; }
+[data-theme="day"] .guide-note__mark { border-color: #3a8a87; color: #1a7875; }
+
+[data-theme="day"] .topbar {
+  border-bottom-color: #c0ced4;
+  background: rgba(237, 241, 243, .96);
+}
+[data-theme="day"] .brand-mark { color: #edf1f3; background: #7a5a0a; }
+[data-theme="day"] .brand-lockup h1 { color: #0f2027; }
+[data-theme="day"] .brand-lockup p { color: #4a6875; }
+[data-theme="day"] .last-update span { color: #4a6875; }
+[data-theme="day"] .last-update strong { color: #1e3a48; }
+[data-theme="day"] .connection--live { color: #1a6a40; }
+[data-theme="day"] .connection--live .connection__dot { background: #1a6a40; box-shadow: 0 0 0 4px rgba(26, 106, 64, .12); }
+[data-theme="day"] .connection--offline { color: #b0302a; }
+[data-theme="day"] .connection--offline .connection__dot { background: #b0302a; }
+
+[data-theme="day"] .eyebrow { color: #7a5a0a; }
+[data-theme="day"] .intro h2 { color: #0f2027; }
+[data-theme="day"] .intro__copy { color: #4a6875; }
+[data-theme="day"] .intro__signal { color: #4a6875; }
+[data-theme="day"] .intro__signal span { background: #1a6a40; }
+[data-theme="day"] .last-update span, [data-theme="day"] .stat-card__label, [data-theme="day"] .eyebrow { color: #4a6875; }
+
+[data-theme="day"] .summary-grid .stat-card { border-color: #c0ced4; background: #ffffff; }
+[data-theme="day"] .stat-card strong { color: #0f2027; }
+[data-theme="day"] .stat-card__hint { color: #4a6875; }
+[data-theme="day"] .stat-card--alert { border-color: rgba(176, 48, 42, .4); background: rgba(255, 236, 234, .6); }
+[data-theme="day"] .stat-card--alert strong { color: #b0302a; }
+[data-theme="day"] .stat-card--reroute { border-color: rgba(26, 120, 117, .4); background: rgba(220, 242, 240, .4); }
+[data-theme="day"] .stat-card--reroute strong { color: #1a7875; }
+
+[data-theme="day"] .search-box { border-color: #b0c2ca; background: #ffffff; }
+[data-theme="day"] .search-box:focus-within { border-color: #7a5a0a; box-shadow: 0 0 0 3px rgba(122, 90, 10, .1); }
+[data-theme="day"] .search-box__icon { color: #7a5a0a; }
+[data-theme="day"] .search-box input { color: #0f2027; }
+[data-theme="day"] .search-box input::placeholder { color: #7a9aa5; }
+[data-theme="day"] .search-box__key { border-color: #b0c2ca; color: #4a6875; }
+
+[data-theme="day"] .group-card { border-color: #c0ced4; background: #f8fafb; box-shadow: 0 4px 14px rgba(0, 0, 0, .07); }
+[data-theme="day"] .group-card__header { background: #edf1f3; }
+[data-theme="day"] .group-card__header[aria-expanded="true"] { border-bottom-color: #c0ced4; }
+[data-theme="day"] .group-card__header:hover { background: #e4eaed; }
+[data-theme="day"] .group-card__header:focus-visible { outline-color: #7a5a0a; }
+[data-theme="day"] .group-card__title { color: #0f2027; }
+[data-theme="day"] .group-card__icon { color: #7a5a0a; }
+[data-theme="day"] .group-card__count { color: #4a6875; }
+[data-theme="day"] .group-card__count strong { color: #1e3a48; }
+[data-theme="day"] .group-card__count--active { color: #1a6a40; }
+[data-theme="day"] .group-card__count--proposed { color: #7a5a0a; }
+[data-theme="day"] .group-card__separator { color: #7a9aa5; }
+[data-theme="day"] .collapse-chevron { border-color: #a0b8c0; color: #7a5a0a; }
+[data-theme="day"] .group-card__body { background: rgba(255, 255, 255, .85); }
+[data-theme="day"] .group-card__body > div { border-color: rgba(192, 206, 212, .65) !important; }
+
+[data-theme="day"] .group-card.red .group-card__icon { color: #b0302a; }
+[data-theme="day"] .group-card.orange .group-card__icon { color: #9a5010; }
+[data-theme="day"] .group-card.yellow .group-card__icon { color: #7a5a0a; }
+[data-theme="day"] .group-card.purple .group-card__icon { color: #5a3a8a; }
+[data-theme="day"] .group-card.teal .group-card__icon { color: #1a7875; }
+
+[data-theme="day"] .scroll-top-button { border-color: #a0b8c0; color: #3a5c6a; background: #edf1f3; }
+[data-theme="day"] .scroll-top-button:hover { border-color: #7a9aa5; color: #0f2027; }
+[data-theme="day"] .scroll-top-button:focus-visible { outline-color: #7a5a0a; }
+[data-theme="day"] .scroll-top-action { border-top-color: rgba(192, 206, 212, .55); }
+
+[data-theme="day"] .restriction-row { border-color: rgba(192, 206, 212, .65) !important; }
+[data-theme="day"] .airport-code { color: #0f2027; }
+[data-theme="day"] .center-label strong { color: #1e3a48; }
+[data-theme="day"] .center-label small { color: #1a7875; }
+[data-theme="day"] .center-term { text-decoration-color: rgba(26, 120, 117, .7); }
+[data-theme="day"] .center-term::after { border-color: #7aa8ac; background: #f0f6f7; color: #0f2027; }
+[data-theme="day"] .row-description { color: #3a5c6a; }
+[data-theme="day"] .row-description strong { color: #0f2027; }
+[data-theme="day"] .aviation-term { color: #0f2027; }
+[data-theme="day"] .row-time { color: #4a6875; }
+
+[data-theme="day"] .time-bubble { border-color: #b0c2ca; background: #f0f6f7; }
+[data-theme="day"] .time-bubble > span:not(.time-bubble__ufn) { border-right-color: #b0c2ca; }
+[data-theme="day"] .time-bubble small { color: #4a6875; }
+[data-theme="day"] .time-bubble strong { color: #1e3a48; }
+[data-theme="day"] .time-bubble em { color: #1a6a40; background: rgba(26, 106, 64, .06); }
+[data-theme="day"] .time-bubble__ufn { color: #7a5a0a; }
+
+[data-theme="day"] .reason-chip { border-color: #b0c2ca; color: #3a5c6a; background: #f0f6f7; }
+[data-theme="day"] .status-pill--active { background: #1a6a40; }
+[data-theme="day"] .status-pill--proposed { background: #7a5a0a; }
+[data-theme="day"] .status-pill { color: #ffffff; }
+[data-theme="day"] .status-pill--red { background: #b0302a; }
+[data-theme="day"] .status-pill--yellow { background: #7a5a0a; }
+
+[data-theme="day"] .empty-state__icon { color: #7a5a0a; }
+[data-theme="day"] .empty-state p { color: #4a6875; }
+
+[data-theme="day"] .airport-operations-card { border-color: rgba(122, 90, 10, .38); }
+[data-theme="day"] .airport-operations-card__header { background: rgba(200, 170, 80, .18); }
+[data-theme="day"] .airport-operations-card__header .group-card__icon { color: #7a5a0a; }
+[data-theme="day"] .airport-operations-card__meta { color: #4a6875; }
+[data-theme="day"] .airport-operations { background: rgba(248, 250, 251, .9); }
+[data-theme="day"] .airport-operations__group { border-color: #b0c2ca; background: rgba(255, 255, 255, .7); }
+[data-theme="day"] .airport-operations__group h3 { color: #3a5c6a; }
+[data-theme="day"] .airport-operations__group h3 strong { color: #7a5a0a; }
+[data-theme="day"] .airport-operation strong { color: #0f2027; }
+[data-theme="day"] .airport-operation span { color: #4a6875; }
+[data-theme="day"] .airport-operation em { color: #7a5a0a; }
+[data-theme="day"] .airport-operation { border-top-color: rgba(192, 206, 212, .55); }
+[data-theme="day"] .airport-operations__group--stop { border-color: rgba(176, 48, 42, .38); }
+[data-theme="day"] .airport-operations__group--stop h3 strong { color: #b0302a; }
+[data-theme="day"] .airport-operations__group--departure { border-color: rgba(26, 120, 117, .38); }
+[data-theme="day"] .airport-operations__group--departure h3 strong { color: #1a7875; }
+[data-theme="day"] .airport-operation__metric--average { color: #7a5a0a !important; }
+[data-theme="day"] .airport-operation__metric--maximum { color: #b0302a !important; }
+[data-theme="day"] .airport-operation__metric--extension { color: #5a3a8a !important; }
+[data-theme="day"] .airport-operation__metric--range { color: #1a7875 !important; }
+[data-theme="day"] .airport-operation__metric--trend { color: #1a7875 !important; }
+[data-theme="day"] .airport-operation__metric--trend-increasing { color: #9a5010 !important; }
+[data-theme="day"] .airport-operation__metric--trend-decreasing { color: #1a4a8a !important; }
+
+[data-theme="day"] .current-reroutes-card { border-color: rgba(26, 120, 117, .45); }
+[data-theme="day"] .current-reroutes-card__header { background: rgba(220, 242, 240, .5); }
+[data-theme="day"] .current-reroutes-card__header .group-card__icon { color: #1a7875; }
+[data-theme="day"] .current-reroutes-card__meta { color: #4a6875; }
+[data-theme="day"] .current-reroutes-card__meta-segment strong { color: #1e3a48; }
+[data-theme="day"] .current-reroutes-card__meta-segment--required { color: #7a5a0a; }
+[data-theme="day"] .current-reroutes-card__meta-segment--recommended { color: #1a7875; }
+[data-theme="day"] .current-reroutes-card__meta-segment--fca { color: #9a5010; }
+[data-theme="day"] .current-reroutes-card__meta-separator { color: #7a9aa5; }
+[data-theme="day"] .current-reroutes-body { background: rgba(255, 255, 255, .9); }
+[data-theme="day"] .current-reroutes-prompt { color: #4a6875; }
+[data-theme="day"] .current-reroute { border-bottom-color: rgba(192, 206, 212, .6); }
+[data-theme="day"] .current-reroute summary { color: #1e3a48; }
+[data-theme="day"] .current-reroute summary::marker { color: #1a7875; }
+[data-theme="day"] .current-reroute__requirement { color: #7a5a0a; }
+[data-theme="day"] .current-reroute__requirement--recommended strong { color: #1a7875; }
+[data-theme="day"] .current-reroute__requirement--fca strong { color: #9a5010; }
+[data-theme="day"] .current-reroute__area { color: #1a7875; }
+[data-theme="day"] .current-reroute__meta { color: #4a6875; }
+[data-theme="day"] .current-reroute__fields dt { color: #4a6875; }
+[data-theme="day"] .current-reroute__fields dd { color: #1e3a48; }
+[data-theme="day"] .current-reroute__routes h3 { color: #1e3a48; }
+[data-theme="day"] .current-reroute__routes h3 span { color: #1a7875; }
+[data-theme="day"] .current-reroute__route { border-top-color: rgba(192, 206, 212, .45); }
+[data-theme="day"] .current-reroute__route span { color: #1a7875; }
+[data-theme="day"] .current-reroute__route b { color: #7a5a0a; }
+[data-theme="day"] .reroute-facility { color: #1e3a48; text-decoration-color: rgba(26, 120, 117, .8); }
+[data-theme="day"] .reroute-facility::after { border-color: #7aa8ac; background: #f0f6f7; color: #0f2027; }
+[data-theme="day"] .reroute-exceptions { color: #7a5a0a; }
+[data-theme="day"] .current-reroute__route code { color: #1e3a48; }
+[data-theme="day"] .current-reroute__detail pre { color: #3a5c6a; }
+[data-theme="day"] .current-reroute__detail a { color: #7a5a0a; }
+
+[data-theme="day"] .closures-card { border-color: rgba(176, 48, 42, .42); }
+[data-theme="day"] .closures-card__header { background: rgba(255, 230, 228, .55); }
+[data-theme="day"] .closures-card__header .group-card__icon { color: #b0302a; }
+
+[data-theme="day"] .ops-plan-card { border-color: rgba(26, 120, 117, .42); }
+[data-theme="day"] .ops-plan-card__header { background: rgba(220, 242, 240, .5); }
+[data-theme="day"] .ops-plan-card__header .group-card__icon { color: #1a7875; }
+[data-theme="day"] .ops-plan-card__meta { color: #4a6875; }
+[data-theme="day"] .ops-plan-body { background: rgba(255, 255, 255, .9); }
+[data-theme="day"] .ops-plan-title { border-bottom-color: #c0ced4; color: #7a5a0a; }
+[data-theme="day"] .airport-impacts { border-bottom-color: #c0ced4; }
+[data-theme="day"] .airport-impacts__heading h3 { color: #1e3a48; }
+[data-theme="day"] .airport-impacts__heading span, [data-theme="day"] .airport-impact__airport span { color: #4a6875; }
+[data-theme="day"] .airport-impact { border-top-color: rgba(192, 206, 212, .45); }
+[data-theme="day"] .airport-impact__airport strong { color: #7a5a0a; }
+[data-theme="day"] .impact-status--closed { color: #7a1a16; background: rgba(176, 48, 42, .15); }
+[data-theme="day"] .impact-status--limited { color: #6a4a08; background: rgba(122, 90, 10, .15); }
+[data-theme="day"] .impact-kind { color: #1a7875; border-color: rgba(26, 120, 117, .3); }
+[data-theme="day"] .airport-impact__description { color: #3a5c6a; }
+[data-theme="day"] .airport-impact__end { color: #4a6875; }
+[data-theme="day"] .ops-plan-section { border-bottom-color: rgba(192, 206, 212, .55); }
+[data-theme="day"] .ops-plan-section h3 { color: #1e3a48; }
+[data-theme="day"] .ops-plan-lines p { color: #3a5c6a; }
+
+/* ── End Day Theme ────────────────────────────────────────────────────────── */
+
 @media (max-width: 640px) {
   :root { --topbar-height: var(--topbar-height-mobile); }
   .topbar__inner, .dashboard { width: min(100% - 28px, 960px); }
