@@ -1,10 +1,36 @@
 const axios = require('axios');
 const xml2js = require('xml2js');
-const NodeCache = require('node-cache');
 const cheerio = require('cheerio');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-// Cache data for 120 seconds to avoid spamming FAA
-const cache = new NodeCache({ stdTTL: 120 });
+// File-based cache: survives process restarts on the same Render instance.
+// TTL is 5 minutes so FAA data stays reasonably fresh while minimising
+// outbound requests and Render bandwidth.
+const CACHE_DIR = path.join(os.tmpdir(), 'faa-cache');
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (_) {}
+
+function cacheGet(key) {
+    try {
+        const raw = fs.readFileSync(path.join(CACHE_DIR, `${key}.json`), 'utf8');
+        const { expires, data } = JSON.parse(raw);
+        if (Date.now() < expires) return data;
+    } catch (_) {}
+    return undefined;
+}
+
+function cacheSet(key, data) {
+    try {
+        fs.writeFileSync(
+            path.join(CACHE_DIR, `${key}.json`),
+            JSON.stringify({ expires: Date.now() + CACHE_TTL_MS, data }),
+        );
+    } catch (_) {}
+}
+
 const OPS_PLAN_FALLBACK_URL = process.env.OPS_PLAN_URL || 'https://www.fly.faa.gov/adv/adv_otherdis?advn=93&adv_date=08252026&facId=ATCSCC&title=ATCSCC%20ADVZY%20093%20DCC%2008%2F25%2F2026%20OPERATIONS%20PLAN&titleDate=08%2F25%2F2026';
 const CURRENT_REROUTES_URL = 'https://www.fly.faa.gov/current_reroutes/index';
 const CANADIAN_AIRPORT_CODES = new Set([
@@ -175,7 +201,7 @@ function parseAdvisoryRoutes(lines) {
 
 async function fetchCurrentReroutes() {
     const cacheKey = 'current-reroutes';
-    const cachedData = cache.get(cacheKey);
+    const cachedData = cacheGet(cacheKey);
     if (cachedData) return cachedData;
 
     try {
@@ -220,7 +246,7 @@ async function fetchCurrentReroutes() {
             };
         }));
 
-        cache.set(cacheKey, reroutes);
+        cacheSet(cacheKey, reroutes);
         return reroutes;
     } catch (error) {
         console.error('Failed to fetch Current Reroutes', error.message);
@@ -230,7 +256,7 @@ async function fetchCurrentReroutes() {
 
 async function fetchNasStatus() {
     const cacheKey = 'nas-status';
-    const cachedData = cache.get(cacheKey);
+    const cachedData = cacheGet(cacheKey);
     if (cachedData) return cachedData;
 
     try {
@@ -239,7 +265,7 @@ async function fetchNasStatus() {
         const parser = new xml2js.Parser({ explicitArray: false });
         const result = await parser.parseStringPromise(response.data);
         
-        cache.set(cacheKey, result);
+        cacheSet(cacheKey, result);
         return result;
     } catch (error) {
         console.error('Failed to fetch NAS Status XML', error.message);
@@ -249,7 +275,7 @@ async function fetchNasStatus() {
 
 async function fetchAdvisories() {
     const cacheKey = 'advisories';
-    const cachedData = cache.get(cacheKey);
+    const cachedData = cacheGet(cacheKey);
     if (cachedData) return cachedData;
 
     try {
@@ -272,7 +298,7 @@ async function fetchAdvisories() {
             }
         });
 
-        cache.set(cacheKey, advisories);
+        cacheSet(cacheKey, advisories);
         return advisories;
     } catch (error) {
         console.error('Failed to fetch Advisories', error.message);
@@ -303,8 +329,13 @@ async function fetchNasClosures() {
 }
 
 async function fetchAirportOperations() {
-    const eventsResponse = await axios.get('https://nasstatus.faa.gov/api/airport-events');
-    const airportEvents = Array.isArray(eventsResponse.data) ? eventsResponse.data : [];
+    const eventsCacheKey = 'airport-events';
+    let airportEvents = cacheGet(eventsCacheKey);
+    if (!airportEvents) {
+        const eventsResponse = await axios.get('https://nasstatus.faa.gov/api/airport-events');
+        airportEvents = Array.isArray(eventsResponse.data) ? eventsResponse.data : [];
+        cacheSet(eventsCacheKey, airportEvents);
+    }
     const status = await fetchNasStatus();
     const delayTypes = toArray(status?.AIRPORT_STATUS_INFORMATION?.Delay_type);
     const groundStopType = delayTypes.find(type => type.Name === 'Ground Stop Programs');
@@ -469,7 +500,7 @@ function icaoAirportCode(value) {
 
 async function fetchOpsPlan() {
     const cacheKey = 'ops-plan';
-    const cachedData = cache.get(cacheKey);
+    const cachedData = cacheGet(cacheKey);
     if (cachedData) return cachedData;
 
     const planUrl = await findLatestOpsPlanUrl();
@@ -480,7 +511,7 @@ async function fetchOpsPlan() {
     const sections = parsePlanSections(rawText);
     const airportImpacts = parseAirportImpacts(sections);
     const plan = { title, rawText, sections, airportImpacts, sourceUrl: planUrl, fetchedAt: new Date().toISOString() };
-    cache.set(cacheKey, plan);
+    cacheSet(cacheKey, plan);
     return plan;
 }
 
@@ -601,7 +632,7 @@ function parseNotamTime(dateText, timeText) {
 
 async function fetchRestrictions() {
     const cacheKey = 'restrictions';
-    const cachedData = cache.get(cacheKey);
+    const cachedData = cacheGet(cacheKey);
     if (cachedData) return cachedData;
 
     try {
@@ -648,7 +679,7 @@ async function fetchRestrictions() {
             });
         });
 
-        cache.set(cacheKey, restrictions);
+        cacheSet(cacheKey, restrictions);
         return restrictions;
     } catch (error) {
         console.error('Failed to fetch FAA Restrictions', error.message);

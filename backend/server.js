@@ -81,4 +81,4 @@ function extractRunways(detail) {
         : [];
 }
 
-setInterval(refreshRestrictions, 60 * 1000);
+setInterval(refreshRestrictions, 5 * 60 * 1000);
