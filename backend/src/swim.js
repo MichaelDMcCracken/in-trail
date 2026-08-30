@@ -1,6 +1,7 @@
 require('dotenv').config();
 const solace = require('solclientjs');
 const xml2js = require('xml2js');
+const metrics = require('./metrics');
 
 const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: true });
 
@@ -59,11 +60,16 @@ function broadcast(event, data) {
     for (const fn of listeners) fn(msg);
 }
 
-function broadcastSnapshotIfChanged() {
+function broadcastSnapshotIfChanged(trigger) {
     const snapshot = getSnapshot();
     const json = JSON.stringify(snapshot);
-    if (json === lastSnapshotJson) return;
+    if (json === lastSnapshotJson) {
+        metrics.recordBroadcastSkipped();
+        return;
+    }
     lastSnapshotJson = json;
+    const snapshotBytes = Buffer.byteLength(json, 'utf8');
+    metrics.recordBroadcastSent(snapshotBytes, listeners.size, trigger || 'other');
     broadcast('update', snapshot);
 }
 
@@ -105,27 +111,27 @@ function applyNasClosures(closures) {
 
 function setNasClosures(closures) {
     applyNasClosures(closures);
-    broadcastSnapshotIfChanged();
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function setOpsPlan(plan) {
     opsPlan = plan;
-    broadcastSnapshotIfChanged();
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function setAirportOperations(operations) {
     airportOperations = operations;
-    broadcastSnapshotIfChanged();
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function setScrapedRestrictions(restrictions) {
     scrapedRestrictions = restrictions;
-    broadcastSnapshotIfChanged();
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function setCurrentReroutes(reroutes) {
     currentReroutes = reroutes;
-    broadcastSnapshotIfChanged();
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 // Batch setter: update all FAA-scraped data and broadcast only once.
@@ -136,7 +142,7 @@ function setFAAScrapedData(restrictions, reroutes, closures, plan, airportOps) {
     applyNasClosures(closures);
     opsPlan = plan;
     airportOperations = airportOps;
-    broadcastSnapshotIfChanged();
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function scheduleReconnect() {
