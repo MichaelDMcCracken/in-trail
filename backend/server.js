@@ -3,7 +3,7 @@ const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const { WebSocketServer } = require('ws');
-const { connectToSWIM, getSnapshot, setScrapedRestrictions, setCurrentReroutes, setNasClosures, setOpsPlan, setAirportOperations, addListener, removeListener } = require('./src/swim');
+const { connectToSWIM, getSnapshot, setFAAScrapedData, addListener, removeListener } = require('./src/swim');
 const { fetchRestrictions, fetchCurrentReroutes, fetchNasClosures, fetchAirportOperations, fetchOpsPlan } = require('./src/scraper');
 
 const app = express();
@@ -63,11 +63,7 @@ async function refreshRestrictions() {
             kind: impact.kind,
             source: 'OPS_PLAN',
         }));
-        setScrapedRestrictions(restrictions);
-        setCurrentReroutes(reroutes);
-        setNasClosures([...closures, ...opsClosures]);
-        setOpsPlan(plan);
-        setAirportOperations(airportOperations);
+        setFAAScrapedData(restrictions, reroutes, [...closures, ...opsClosures], plan, airportOperations);
         console.log(`Loaded ${restrictions.length} FAA restrictions, ${reroutes.length} current reroutes, ${closures.length} NAS closures, and ${plan.sections.length} ops-plan sections`);
     } catch (error) {
         console.error('FAA restrictions refresh failed:', error.message);
