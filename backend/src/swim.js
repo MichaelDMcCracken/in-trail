@@ -1,6 +1,7 @@
 require('dotenv').config();
 const solace = require('solclientjs');
 const xml2js = require('xml2js');
+const metrics = require('./metrics');
 
 const parser = new xml2js.Parser({ explicitArray: false, ignoreAttrs: true });
 
@@ -52,10 +53,24 @@ const listeners = new Set();
 let swimConnected = false;
 let lastUpdated = null;
 let reconnectTimer = null;
+let lastSnapshotJson = null;
 
 function broadcast(event, data) {
     const msg = JSON.stringify({ event, data, ts: new Date().toISOString() });
     for (const fn of listeners) fn(msg);
+}
+
+function broadcastSnapshotIfChanged(trigger) {
+    const snapshot = getSnapshot();
+    const json = JSON.stringify(snapshot);
+    if (json === lastSnapshotJson) {
+        metrics.recordBroadcastSkipped();
+        return;
+    }
+    lastSnapshotJson = json;
+    const snapshotBytes = Buffer.byteLength(json, 'utf8');
+    metrics.recordBroadcastSent(snapshotBytes, listeners.size, trigger || 'other');
+    broadcast('update', snapshot);
 }
 
 function addListener(fn) { listeners.add(fn); }
@@ -85,34 +100,49 @@ function getSnapshot() {
     };
 }
 
-function setNasClosures(closures) {
+function applyNasClosures(closures) {
     nasClosures.clear();
     for (const closure of closures) {
         const airportClosures = nasClosures.get(closure.aerodrome) || [];
         airportClosures.push(closure);
         nasClosures.set(closure.aerodrome, airportClosures);
     }
-    broadcast('update', getSnapshot());
+}
+
+function setNasClosures(closures) {
+    applyNasClosures(closures);
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function setOpsPlan(plan) {
     opsPlan = plan;
-    broadcast('update', getSnapshot());
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function setAirportOperations(operations) {
     airportOperations = operations;
-    broadcast('update', getSnapshot());
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function setScrapedRestrictions(restrictions) {
     scrapedRestrictions = restrictions;
-    broadcast('update', getSnapshot());
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function setCurrentReroutes(reroutes) {
     currentReroutes = reroutes;
-    broadcast('update', getSnapshot());
+    broadcastSnapshotIfChanged('faa_refresh');
+}
+
+// Batch setter: update all FAA-scraped data and broadcast only once.
+// Use this instead of calling the individual setters in sequence.
+function setFAAScrapedData(restrictions, reroutes, closures, plan, airportOps) {
+    scrapedRestrictions = restrictions;
+    currentReroutes = reroutes;
+    applyNasClosures(closures);
+    opsPlan = plan;
+    airportOperations = airportOps;
+    broadcastSnapshotIfChanged('faa_refresh');
 }
 
 function scheduleReconnect() {
@@ -222,7 +252,7 @@ async function handleMessage(xmlString) {
     }
 
     if (changed) {
-        broadcast('update', getSnapshot());
+        broadcastSnapshotIfChanged();
     }
 }
 
@@ -299,4 +329,4 @@ function connectToSWIM() {
     session.connect();
 }
 
-module.exports = { connectToSWIM, getSnapshot, setScrapedRestrictions, setCurrentReroutes, setNasClosures, setOpsPlan, setAirportOperations, addListener, removeListener };
+module.exports = { connectToSWIM, getSnapshot, setScrapedRestrictions, setCurrentReroutes, setNasClosures, setOpsPlan, setAirportOperations, setFAAScrapedData, addListener, removeListener };
