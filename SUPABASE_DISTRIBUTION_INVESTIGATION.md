@@ -78,6 +78,20 @@ Conclusion from scaling math:
 - Moving distribution to Supabase does **not** reduce total internet egress bytes to all pilots.
 - It **does** materially reduce **Render** outbound growth from O(pilots) to ~O(1), shifting distribution load to Supabase.
 
+### Practicality of backend-side filtering
+- **Yes, it is practical and possible** for backend distribution to provide filtered results (for example by airport/facility/query token) instead of always shipping the full snapshot.
+- This can reduce per-user transfer significantly because each user usually needs only a small subset at a time.
+- Simplest version:
+  - Keep one canonical full snapshot produced on Render.
+  - Add a read endpoint (or Supabase read pattern) that returns a filtered projection for a requested airport/query.
+  - Keep full snapshot available for fallback/search modes.
+- Tradeoff:
+  - Backend/Supabase query complexity increases slightly.
+  - But network usage per pilot generally drops versus always sending the full global state.
+- Recommendation:
+  - Start with full-snapshot polling migration first (lowest risk).
+  - Then add filtered reads as a second optimization pass if bandwidth remains a concern.
+
 ## 5) Recommended minimal Supabase data model
 
 Do **not** build historical/event schema initially.
